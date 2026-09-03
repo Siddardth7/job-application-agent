@@ -3,7 +3,7 @@
 
   export   Build networking_<date>.xlsx from the template: one block per role scoring
            above 70 (or specified roles) that is still live, pre-filled with Role / URL /
-           Company / Location header and Job Posted Date. Contact rows left blank for Sid
+           Company / Location header and Job Posted Date. Contact rows left blank for you
            to fill after sourcing.
   import   Read a filled sheet back and upsert the contact rows into Supabase.
 
@@ -407,7 +407,7 @@ def contacts_from_records(records):
                 continue
             out.append({
                 # ponytail: name is a placeholder keyed on company so re-runs
-                # upsert (not duplicate). If Sid renames it to the real person a
+                # upsert (not duplicate). If you renames it to the real person a
                 # later run re-adds the search placeholder — acceptable.
                 "name": f"{label} — {company}" if company else label,
                 "title": None,

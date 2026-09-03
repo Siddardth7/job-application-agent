@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 verify_pdf.py — LaTeX & PDF compilation and ATS text-layer verification tool for Job_Applications.
-Hardened with capabilities from MadsLorentzen/ai-job-search and tailored for Sid's 45-day sprint.
+Hardened with capabilities from MadsLorentzen/ai-job-search.
 
 Checks:
 1. LaTeX syntax safety (no bare unescaped &, %, #, _, $)

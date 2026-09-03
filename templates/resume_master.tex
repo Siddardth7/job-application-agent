@@ -1,0 +1,127 @@
+% ===========================================================================
+%  MASTER RESUME TEMPLATE
+%
+%  Copy to Resume/Final_Resumes/Resume_Master.tex and replace every [BRACKET].
+%  Compile with:  pdflatex Resume_Master.tex
+%  On Overleaf:   New Project -> Upload Project -> drop this .tex in.
+%
+%  VARIANTS (optional). If you want more than one resume, create a one-line
+%  stub next to this file per variant:
+%
+%      % Resume_Aerospace.tex
+%      \def\ResumeType{1}\input{Resume_Master.tex}
+%
+%  and wrap variant-specific content below in \ifnum\ResumeType=1 ... \fi.
+%  Set \ResumeType=6 for the two-page layout. If you only ever send one
+%  resume, ignore all of this — the template works as-is with no stubs.
+% ===========================================================================
+
+\documentclass[letterpaper,11pt]{article}
+\usepackage{latexsym}
+\setlength{\oddsidemargin}{0in}
+\setlength{\evensidemargin}{0in}
+\setlength{\textwidth}{6.5in}
+\setlength{\topmargin}{0in}
+\setlength{\headheight}{0in}
+\setlength{\headsep}{0in}
+\setlength{\textheight}{9.0in}
+\usepackage{titlesec}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage[english]{babel}
+\input{glyphtounicode}
+\pdfgentounicode=1
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+\urlstyle{same}
+\pagestyle{empty}
+\titleformat{\section}{\vspace{-4pt}\scshape\raggedright\large}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+\newcommand{\resumeItem}[1]{\item\small{#1}}
+\newcommand{\resumeEntry}[2]{\item\begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}#1 & #2 \\\end{tabular*}}
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in,label={},itemsep=2pt,parsep=0pt,topsep=2pt,partopsep=0pt]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}[itemsep=1pt,parsep=0pt,topsep=0pt,partopsep=0pt]}
+\newcommand{\resumeItemListEnd}{\end{itemize}}
+\newif\ifTwoPage
+\providecommand{\ResumeType}{0}
+\ifnum\ResumeType=6 \TwoPagetrue \else \TwoPagefalse \fi
+\begin{document}
+\begin{center}
+  \textbf{\Huge \scshape [YOUR NAME]}\\ \vspace{1pt}
+  \small
+  [CITY, STATE] $|$ [PHONE] $|$
+  \href{mailto:[EMAIL]}{\underline{[EMAIL]}} $|$
+  \href{[LINKEDIN URL]}{\underline{LinkedIn}} $|$
+  \href{[GITHUB URL]}{\underline{GitHub}} $|$
+  \href{[PORTFOLIO URL]}{\underline{Portfolio}}
+\end{center}
+
+% ---------------------------------------------------------------------------
+% Delete any section you don't need, and reorder them freely. The pipeline
+% tailors by REORDERING and REPHRASING what is already here — it never invents.
+% Whatever you write below must be true and must also exist in
+% data/candidate_resume_database.json.
+% ---------------------------------------------------------------------------
+
+\section{Education}
+\resumeSubHeadingListStart
+  \resumeEntry{\textbf{[UNIVERSITY]} $|$ \emph{[DEGREE, e.g. M.S. Mechanical Engineering]}}{[MON YEAR] -- [MON YEAR]}
+  \resumeItemListStart
+    \resumeItem{Coursework: [RELEVANT COURSE], [RELEVANT COURSE], [RELEVANT COURSE].}
+  \resumeItemListEnd
+  \resumeEntry{\textbf{[UNIVERSITY]} $|$ \emph{[DEGREE]}}{[MON YEAR] -- [MON YEAR]}
+\resumeSubHeadingListEnd
+
+\section{Skills}
+\begin{itemize}[leftmargin=0.15in,label={}]
+\small{\item{
+  % Three lines works well. Group by theme, put your strongest group first —
+  % this section is the pipeline's main tailoring surface.
+  \textbf{[SKILL GROUP 1, e.g. Core Discipline]}: [SKILL], [SKILL], [SKILL], [SKILL] \\
+  \textbf{[SKILL GROUP 2, e.g. Methods \& Standards]}: [SKILL], [SKILL], [SKILL] \\
+  \textbf{[SKILL GROUP 3, e.g. Tools \& Software]}: [TOOL], [TOOL], [TOOL]
+}}
+\end{itemize}
+
+\section{Experience}
+\resumeSubHeadingListStart
+  \resumeEntry{\textbf{[COMPANY]} $|$ \emph{[JOB TITLE]}}{[MON YEAR] -- [MON YEAR]}
+  \resumeItemListStart
+    % Strong bullets: action verb + what you did + the measurable outcome.
+    % If you don't have a real number, write the bullet without one. Never estimate.
+    \resumeItem{[Action verb] [what you did], [measurable result, e.g. reducing X by N\%].}
+    \resumeItem{[Action verb] [what you did] [in compliance with / using STANDARD or TOOL].}
+    \resumeItem{[Action verb] [what you did], [outcome].}
+  \resumeItemListEnd
+
+  \resumeEntry{\textbf{[COMPANY]} $|$ \emph{[JOB TITLE]}}{[MON YEAR] -- [MON YEAR]}
+  \resumeItemListStart
+    \resumeItem{[Achievement bullet].}
+    \resumeItem{[Achievement bullet].}
+  \resumeItemListEnd
+\resumeSubHeadingListEnd
+
+\section{Projects}
+\resumeSubHeadingListStart
+  \resumeEntry{\textbf{[PROJECT NAME]} $|$ \emph{[TECH / METHODS USED]} $|$ \href{[PROJECT URL]}{\underline{GitHub}}}{[MON YEAR] -- [MON YEAR]}
+  \resumeItemListStart
+    \resumeItem{[What you built and the problem it solves].}
+    \resumeItem{[Technique, scale, or result that makes it concrete].}
+  \resumeItemListEnd
+
+  \resumeEntry{\textbf{[PROJECT NAME]} $|$ \emph{[TECH / METHODS USED]} $|$ \href{[PROJECT URL]}{\underline{GitHub}}}{[MON YEAR] -- [MON YEAR]}
+  \resumeItemListStart
+    \resumeItem{[What you built].}
+    \resumeItem{[Result or scale].}
+  \resumeItemListEnd
+\resumeSubHeadingListEnd
+
+\end{document}

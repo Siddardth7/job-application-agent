@@ -64,7 +64,9 @@ It picks a path based on what's in `documents/`, asks what it can't read, and wr
 | `data/candidate_resume_database.json` | Truth source — the customiser may only claim what's in here |
 | `playbook/P1_06_scoring_rubric.md` | Your scoring rubric and thresholds |
 | `playbook/P1_03_resume_customization_rules.md` | Your tailoring rules |
-| `Resume/Final_Resumes/Resume_NewStrategy_Master.tex` | Your master template |
+| `Resume/Final_Resumes/Resume_Master.tex` | Your master template — your own file, or `templates/resume_master.tex` filled in |
+| `tools/portals.json` | Career boards for your anchor companies |
+| `company_intel.md` | Your own employer notes (starts empty) |
 | `.env` | Optional Supabase and Apify keys |
 
 All are gitignored.
@@ -96,12 +98,18 @@ coverage for a few cents a day. Set `APIFY_TOKEN` in `.env` and a spend cap in `
 /apply-run      # the full daily pipeline, with human gates
 ```
 
-Before your first real application, compile the master template once by hand so you know the
-build works:
+Setup compiles your master once and reports the page count. To rebuild it yourself:
 
 ```bash
-cd Resume/Final_Resumes && pdflatex Resume_NewStrategy_Master.tex
+cd Resume/Final_Resumes && pdflatex Resume_Master.tex
 ```
+
+### Bringing your own resume
+
+Setup asks whether you're supplying your own LaTeX/Overleaf template or starting from
+`templates/resume_master.tex`. If it's an Overleaf project, download the source first
+(Menu → Download → Source) — the pipeline tailors `.tex`, not PDFs. Your file is used
+verbatim; nothing is restyled. Details in [`templates/README.md`](templates/README.md).
 
 ## 9. Interview prep
 

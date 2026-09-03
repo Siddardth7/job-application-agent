@@ -63,6 +63,37 @@ def peer_role_keyword(title: str) -> str:
     return mapping.get("_default", "engineer")
 
 
+def _or(terms: list) -> str:
+    """('a' OR 'b') as a LinkedIn boolean group."""
+    return "(" + " OR ".join(f'"{x}"' for x in terms if x) + ")"
+
+
+def linkedin_query(keywords: str, location: str = "United States",
+                   days: int = 7, experience: str = "2,3") -> str:
+    """Build one LinkedIn jobs search URL. f_TPR is seconds; f_E is experience level."""
+    import urllib.parse
+    return ("https://www.linkedin.com/jobs/search/?keywords="
+            + urllib.parse.quote_plus(keywords)
+            + "&location=" + urllib.parse.quote_plus(location)
+            + f"&f_TPR=r{days * 86400}&f_E={experience}")
+
+
+def search_terms() -> dict:
+    """Config-derived building blocks for the Apify passes."""
+    cfg = load_config()
+    search = cfg.get("search", {})
+    domains = cfg.get("domains", [])
+    return {
+        "anchors": cfg.get("target_anchors", []),
+        "titles": search.get("role_titles", []),
+        "adjacent_titles": search.get("adjacent_titles", []),
+        "toolkit": cfg.get("master_toolkit", [])[:8],
+        "domain_companies": [c for d in domains for c in d.get("company_keywords", [])],
+        "domain_titles": [k for d in domains for k in d.get("title_keywords", [])],
+        "intl_locations": search.get("intl_locations", []),
+    }
+
+
 def demo() -> None:
     """Self-check: config loads and the classifiers route as configured."""
     cfg = load_config()
@@ -81,6 +112,14 @@ def demo() -> None:
     for key, value in mapping.items():
         if key != "_default":
             assert peer_role_keyword(f"Senior {key} specialist") == value, f"{key} routing broken"
+    # Query builder produces a well-formed, correctly-escaped URL.
+    q = linkedin_query('("Quality Engineer") AND ("SPC")', days=7)
+    assert q.startswith("https://www.linkedin.com/jobs/search/?keywords=")
+    assert "f_TPR=r604800" in q, "7 days must encode as 604800 seconds"
+    assert " " not in q, "query must be URL-escaped"
+    assert _or(["a", "b"]) == '("a" OR "b")'
+    st = search_terms()
+    assert st["titles"], "search.role_titles must not be empty"
     print(f"OK  profile_config self-check passed (source: {cfg['_source']})")
 
 

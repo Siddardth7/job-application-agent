@@ -9,7 +9,7 @@
  *   • repost  (is this company+role a ghost re-list in seen_jobs.csv — computed here)
  *
  * Legitimacy is a SEPARATE axis: it NEVER modifies the P1_06 match score or the scoring gate (P1_06 §5).
- * It's the single column Sid reads to decide whether a legit-*scoring* posting is worth
+ * It's the single column you read to decide whether a legit-*scoring* posting is worth
  * spending referral energy on. Levels: OK / CAUTION / DEAD (flag, never silently drop —
  * the Step 6·0 liveness gate is what actually drops `expired` from the referral pass).
  *

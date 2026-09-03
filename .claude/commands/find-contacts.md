@@ -3,7 +3,7 @@ description: Find + rank referral contacts for one company/role (standalone — 
 ---
 Find referral contacts for ONE role: $ARGUMENTS
 
-Standalone entry to the `contact-finder` subagent — use when Sid wants referral contacts sourced and
+Standalone entry to the `contact-finder` subagent — use when you want referral contacts sourced and
 ranked for a single posting he already has, outside `/apply-run`. **Drafting is off by default** — this
 finds and ranks contacts only, unless `$ARGUMENTS` explicitly asks for drafts.
 
@@ -14,4 +14,4 @@ finds and ranks contacts only, unless `$ARGUMENTS` explicitly asks for drafts.
    (discover location + alumni passes → classify → ingest → link). **Stop after linking (8·2) — do not
    draft (8·3) unless `$ARGUMENTS` explicitly asked for drafts.**
 3. Relay the ranked contacts and the ≥5-at-location count/shortfall. If drafts were requested and
-   produced, relay those too — ready for Sid to review. **Never send** — Sid does every send.
+   produced, relay those too — ready for you to review. **Never send** — you do every send.

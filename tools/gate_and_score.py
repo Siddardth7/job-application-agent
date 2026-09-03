@@ -12,7 +12,7 @@ Authoritative implementation matching playbook/P1_06_scoring_rubric.md and AGENT
    - D. Domain Priority (10 pts, per-track domain alignment)
    - E. Logistics (10 pts, salary, location, recency, direct employer)
 4. Routing:
-   - Track 2: Curated Target (Joby, AST SpaceMobile, Micron, or Score >= 75 Aerospace)
+   - Track 2: Curated Target (an anchor company from config, or a top-domain fit >= 75)
    - Track 1: Broad-Fit Apply (Score >= 50, genuine QE / Process / Mfg role)
    - Drop (Score < 50, off-discipline, or Gate 0 failure)
 """
@@ -28,7 +28,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 PIPELINE_DIR = ROOT_DIR / ".pipeline"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib.profile_config import load_config  # noqa: E402
+from lib.profile_config import load_config, classify_domain  # noqa: E402
 
 CONFIG = load_config()
 
@@ -203,7 +203,7 @@ def calculate_fit_score(job: dict) -> tuple[int, dict, list[str], str, str]:
     approvals = get_uscis_approvals(job.get("company", ""))
     spon_pts = 8 # Default neutral
     if is_target_anchor:
-        spon_pts = 30 if "micron" in company else 22
+        spon_pts = 26
     elif approvals >= 50:
         spon_pts = 30
     elif approvals >= 10:
@@ -211,11 +211,12 @@ def calculate_fit_score(job: dict) -> tuple[int, dict, list[str], str, str]:
     elif approvals >= 1:
         spon_pts = 14
     else:
-        # Known Tier 1/2 sponsors
-        if any(k in company for k in ["rivian", "lucid", "borgwarner", "cummins", "applied materials", "kla", "asml", "abbott", "stryker", "boston scientific", "thermo fisher"]):
-            spon_pts = 26
-        elif any(k in company for k in ["joby", "archer", "supernal", "beta"]):
-            spon_pts = 22
+        # Known sponsors from the user's own config (config/search_profile.json).
+        for tier in ("tier1", "tier2"):
+            spec = CONFIG.get("known_sponsors", {}).get(tier) or {}
+            if any(k in company for k in spec.get("companies", []) if k):
+                spon_pts = spec.get("points", spon_pts)
+                break
             
     # International roles (Europe / Australia skilled worker visa baseline)
     is_intl = job.get("source", "").endswith("intl") or any(k in job.get("location", "").lower() for k in ["europe", "australia", "germany", "france", "uk", "united kingdom", "netherlands", "sweden", "switzerland", "ireland", "austria"])
@@ -264,23 +265,15 @@ def calculate_fit_score(job: dict) -> tuple[int, dict, list[str], str, str]:
     elif any(k in title for k in ["senior", "sr.", "sr "]):
         sen_pts = 4
         
-    # D. Domain Priority (10 pts)
-    if is_aero:
-        dom_pts = 10
-        domain_label = "Aerospace, eVTOL & Composites"
-    elif any(k in combined for k in ["semiconductor", "wafer", "cleanroom", "packaging", "micron", "applied materials"]):
-        dom_pts = 9
-        domain_label = "Semiconductor / Microelectronics"
-    elif any(k in combined for k in ["ev", "battery", "energy", "clean energy", "panasonic energy", "rivian"]):
-        dom_pts = 8
-        domain_label = "CleanTech & EV Battery"
-    elif any(k in combined for k in ["automotive", "medical", "precision", "industrial"]):
-        dom_pts = 7
-        domain_label = "Precision / Regulated Manufacturing"
+    # D. Domain Priority (10 pts) — ranked by the order of `domains` in the config.
+    #    First domain listed scores highest; the default bucket scores lowest.
+    domain_label = classify_domain(job.get("company", ""), job.get("title", ""))
+    domain_names = [d["name"] for d in CONFIG.get("domains", [])]
+    if domain_label in domain_names:
+        dom_pts = max(10 - domain_names.index(domain_label), 7)
     else:
         dom_pts = 6
-        domain_label = "General Manufacturing & Quality"
-            
+
     # Freshness Check
     freshness = job.get("freshness")
     freshness_badge = job.get("freshness_badge")
@@ -338,7 +331,7 @@ def calculate_fit_score(job: dict) -> tuple[int, dict, list[str], str, str]:
     else:
         sprint_track = "Drop"
         
-    rec_resume = "Resume_NewStrategy_Master"
+    rec_resume = "Resume_Master"
     
     reasons = [
         f"Sponsorship ({spon_pts}/30) — USCIS / Employer filing signal",

@@ -1006,7 +1006,7 @@ function renderTriage(){
     const role=a?`${esc(a.company)} — ${esc(a.role)}`:esc(c.company||'no linked role');
     const who=c.linkedin_url?`<a href="${esc(c.linkedin_url)}" target="_blank" rel="noopener">${esc(c.name)}</a>`:esc(c.name);
     // The profile URL is always shown, not just wrapped around the name: this queue is where
-    // Sid verifies who each contact actually is before setting a status, and a bare name is
+    // you verifies who each contact actually is before setting a status, and a bare name is
     // not verifiable. The 13 contacts with no URL say so explicitly — that absence is itself
     // the signal to drop them.
     const link=c.linkedin_url

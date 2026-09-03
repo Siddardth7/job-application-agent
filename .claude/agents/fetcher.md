@@ -34,7 +34,7 @@ do is already written in those steps; follow them literally.
    company and returns unrelated senior roles. Per-pass caps: T1 `maxTotalChargeUsd: 0.20`, T2 `0.10`,
    T3 `0.15` (sum ≤ $0.50). Pull only compact fields via `mcp__apify__get-dataset-items`
    (`fields=title,companyName,location,postedAt,seniorityLevel,link,applyUrl,companyWebsite,jobPosterName,jobPosterTitle,jobPosterProfileUrl`
-   — no `descriptionText`). Tag every row `track: T1/T2/T3`, keep the three sets partitioned. If Sid
+   — no `descriptionText`). Tag every row `track: T1/T2/T3`, keep the three sets partitioned. If you
    did not authorize spend this run, run ATS-only and note it plainly — do not silently skip Apify and
    call it done; the OPEN QUESTIONS block must say so. Report running Apify spend vs the $0.50 ceiling.
 3. **Step 2** — dedup the merged pool against `seen_jobs.csv` (job_url OR fingerprint

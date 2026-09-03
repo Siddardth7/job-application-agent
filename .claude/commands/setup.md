@@ -153,6 +153,51 @@ block. Deal-breakers (shift work, travel %, industries to avoid).
 2), score to shortlist (default 50), score to flag for networking (default 60), Apify daily
 spend cap (default $0 — free ATS sourcing only).
 
+**8. Resume setup.** Two questions, in order. Do not assume either answer.
+
+> **First — where is your resume coming from?**
+>
+> **(a) I have my own LaTeX template** — an existing `.tex`, or an Overleaf project.
+>     Point me at the file (or paste it) and I'll use it as your master untouched.
+> **(b) I have a resume, but not in LaTeX** — Word, Google Docs, or a PDF. I'll read it
+>     for your content, and you pick a template for the output.
+> **(c) Start from the repo template** — `templates/resume_master.tex`, a clean ATS-safe
+>     one-pager. I'll fill it in with your material.
+
+Handle each:
+
+- **(a)** Copy their file to `Resume/Final_Resumes/Resume_Master.tex` verbatim. **Do not
+  restructure or restyle it** — it's theirs. Compile it once to confirm it builds, and
+  report the page count. If it doesn't compile, say what failed and let them fix it; don't
+  silently substitute the repo template.
+  If it's an Overleaf project, tell them to download the `.tex` (Menu → Download → Source)
+  — the pipeline tailors source, not PDFs. Multi-file projects: ask for the whole zip and
+  keep the structure, setting `MASTER_TEX` to the root file.
+- **(b)** Extract their content into the resume database, then copy
+  `templates/resume_master.tex` and populate it from that content. Say plainly that the
+  layout will change even though the substance won't, and show them the compiled result.
+- **(c)** Copy `templates/resume_master.tex` and fill every `[BRACKET]` from the resume
+  database. Sections they have nothing for get deleted, not left as empty placeholders.
+
+> **Second — one resume, or several?**
+>
+> **(a) One resume for everything** *(most people — recommended unless you know otherwise)*.
+>     The pipeline still tailors it per posting by reordering skills and rephrasing bullets.
+> **(b) Several variants** for genuinely different role families.
+
+- **One resume** → a single `default` entry in the database's `resume_variants`. Write no
+  stubs. Do not invent variants they didn't ask for.
+- **Variants** → ask what each is for (the role family it targets and what it leads with).
+  For each, add a `resume_variants` entry with its `resume_type` number and emphasis, and
+  write the one-line stub next to the master:
+  `\def\ResumeType{N}\input{Resume_Master.tex}`, named `Resume_<Label>.tex`.
+  Then add the matching `\ifnum\ResumeType=N ... \fi` blocks in the master only where the
+  variants actually differ — identical content stays shared, or the variants drift apart
+  the moment they edit one.
+
+**The resume database is built from their content either way.** Variants change which
+material is *emphasized*, never what is true. One truth source, many arrangements.
+
 ---
 
 ## Step 2: Generate
@@ -182,19 +227,22 @@ Write these. For Path A, skip any file the earlier steps already populated.
    — from the two `.template.md` files, brackets filled from sections 4–7. Set the gate
    YES/NO column from the work-authorization answer.
 
-5. **`Resume/Final_Resumes/Resume_NewStrategy_Master.tex`** — replace the placeholder header
-   (name, contact, links) and seed education plus the most recent role. Tell the user this is
-   their master template to refine by hand; the customiser tailors *from* it and never rewrites it.
+5. **`Resume/Final_Resumes/Resume_Master.tex`** — per the section 8 answers: their own
+   file copied verbatim, or `templates/resume_master.tex` populated from the resume
+   database. Plus any variant stubs they asked for. **Compile it before finishing** and
+   report the page count — a master that doesn't build blocks every application later.
+   The customiser tailors *from* this file and never rewrites it.
 
 6. **`.env`** — copy `.env.example` if `.env` is absent. Do not ask for secret values in
    chat; tell them which keys to paste in themselves. Supabase and Apify are both optional —
    the pipeline runs free and local without either.
 
-7. **`tools/portals.json`** — add career-page URLs for their anchor companies. Keep the
-   shipped generic ATS boards; those cost nothing.
+8. **`company_intel.md`** — copy `company_intel.template.md`. Add any hiring policy the
+   user already knows first-hand; an empty table is the normal starting point.
 
-8. **`company_intel.md`** — start it with any sponsorship or hiring policy the user already
-   knows first-hand. Empty is fine; it grows as they learn.
+9. **`tools/portals.json`** — copy `tools/portals.example.json` and replace its boards with
+   career-page APIs for the user's own anchor companies. The example's boards belong to the
+   template author and are not the user's targets.
 
 **Never write to** `seen_jobs.csv`, `tracker_data.json`, or anything under
 `Job_Applications_Resumes/` — those are runtime state, not setup output.
@@ -210,7 +258,7 @@ Summarize what was written, then:
 > - `profile.md` — the profile every agent reads
 > - `data/candidate_resume_database.json` — your truth source for resume tailoring
 > - `playbook/` — your scoring rubric and customization rules
-> - `Resume/Final_Resumes/Resume_NewStrategy_Master.tex` — your master template
+> - `Resume/Final_Resumes/Resume_Master.tex` — your master template
 >
 > **All of these are gitignored.** They hold your personal data; keep them that way.
 >

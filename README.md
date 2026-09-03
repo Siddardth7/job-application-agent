@@ -67,7 +67,8 @@ Then drop your resume and LinkedIn export into `documents/` and run, in Claude C
 
 `/setup` reads your documents (or interviews you), and writes your search profile, scoring
 rubric, resume truth-source, and master LaTeX template. **Everything it writes is
-gitignored.** Full instructions, prerequisites, and troubleshooting: **[SETUP.md](SETUP.md)**.
+gitignored** — your resume, your profile, your company notes, and your tracker never enter
+git. The repo tracks only templates and examples. Full instructions, prerequisites, and troubleshooting: **[SETUP.md](SETUP.md)**.
 
 > **Until `/setup` runs**, the pipeline falls back to `config/search_profile.example.json` —
 > the template author's targets and keywords. It runs, but it scores every posting against
@@ -79,6 +80,29 @@ Everything profile-specific lives in `config/search_profile.json`: the titles yo
 for, the keywords that earn skill-fit points, your priority domains and anchor companies,
 the geographies you block, and which eligibility gates apply to you. `/setup` writes it;
 edit it by hand any time, or re-run `/setup --section search`.
+
+### Your resume
+
+The repo ships **one** resume file: `templates/resume_master.tex` — a generic, ATS-safe
+one-page LaTeX template with `[BRACKET]` placeholders and nothing else in it. No sample
+resumes, no filled-in examples.
+
+At setup you choose how you want to work:
+
+| You have | What happens |
+|---|---|
+| **Your own `.tex` or Overleaf project** | Used as your master **verbatim**. Nothing is restructured. |
+| **A resume, but not LaTeX** (Word/Docs/PDF) | Content extracted into your truth source, output rendered through a template |
+| **Nothing yet** | Start from `templates/resume_master.tex` and fill it in |
+
+Then: **one resume, or several?** Most people send one, and the pipeline still tailors it
+per posting by reordering skills and rephrasing bullets to the posting's language. If you
+do want variants for different role families, setup writes the one-line stubs
+(`\def\ResumeType{N}\input{Resume_Master.tex}`) and the matching database entries. See
+[`templates/README.md`](templates/README.md).
+
+Either way the claims come from `data/candidate_resume_database.json` — your truth source.
+Variants change what gets *emphasized*, never what is true.
 
 The single highest-leverage answer in setup is **work authorization**. If you need
 sponsorship, the visa gates and the 30-point sponsorship axis stay on. If you're a citizen
@@ -152,15 +176,17 @@ job-application-agent/
 │   ├── candidate_resume_database.json           # Your active candidate inventory
 │   └── uscis_h1b_lookup.json                    # H-1B sponsor database (Gate 0)
 ├── profile.template.md       # Becomes your profile.md at setup
-├── Resume/
-│   └── Final_Resumes/
-│       └── Resume_NewStrategy_Master.tex        # Master LaTeX template
+├── company_intel.template.md # Becomes your company_intel.md at setup
+├── templates/
+│   ├── resume_master.tex     # Generic ATS-safe LaTeX resume (placeholders only)
+│   └── README.md             # How to use it, Overleaf, and resume variants
 ├── tools/
 │   ├── lib/                  # 44+ ATS scraping providers & trust engines
 │   ├── ats_scan.mjs          # Zero-token direct ATS board scanner
 │   ├── fetch_jobs.py         # Multi-pass job fetcher (ATS + Apify)
 │   ├── gate_and_score.py     # Hard ITAR/visa gating & 0-100 rubric scoring
 │   ├── customise_resume.py   # Truth-grounded LaTeX resume tailor
+│   ├── portals.example.json  # Example ATS boards — /setup writes your own
 │   ├── verify_pdf.py         # LaTeX compiler & 1-page ATS PDF validator
 │   ├── log_and_refresh.py    # Tracker updater & contact link generator
 │   └── daily_run.sh          # All-in-one daily runner script
@@ -168,8 +194,7 @@ job-application-agent/
 │   ├── schema.sql            # Table definitions, ENUMs, triggers, and RLS
 │   ├── seed.sql              # Initial sample data
 │   └── README.md             # Complete Supabase setup guide
-├── job_tracker.html          # Interactive dual-tab UI dashboard
-├── tracker_data.template.json# Sample application and contact data
+├── tracker_data.template.json# Sample application and contact data (placeholders)
 ├── networking_sheet.py       # Excel / Supabase networking contact manager
 ├── refresh.py                # Dashboard & tracker artifact builder
 ├── refresh.sh                # One-click dashboard rebuilder

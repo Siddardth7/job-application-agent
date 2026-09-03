@@ -23,7 +23,8 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib.profile_config import load_config, classify_domain, peer_role_keyword  # noqa: E402
+from lib.profile_config import (load_config, classify_domain, peer_role_keyword,  # noqa: E402
+                                linkedin_query, search_terms, _or)
 
 CONFIG = load_config()
 
@@ -31,6 +32,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 PIPELINE_DIR = ROOT_DIR / ".pipeline"
 SEEN_JOBS_CSV = ROOT_DIR / "seen_jobs.csv"
 PORTALS_JSON = ROOT_DIR / "tools" / "portals.json"
+if not PORTALS_JSON.exists():  # pre-setup fallback; /setup writes the user's own
+    PORTALS_JSON = ROOT_DIR / "tools" / "portals.example.json"
 ATS_SCAN_MJS = ROOT_DIR / "tools" / "ats_scan.mjs"
 
 APIFY_TOKEN = os.getenv("APIFY_TOKEN", "")
@@ -327,44 +330,44 @@ def main():
             raw_jobs.append(normalize_job(item, source_type="ats_direct", pass_num=1))
             
         if not skip_apify:
-            queries_p1 = [
-                # Anchors (Joby, AST SpaceMobile, Archer, Beta, Supernal)
-                "https://www.linkedin.com/jobs/search/?keywords=%22Joby%22%20%28quality%20OR%20MRB%20OR%20process%20OR%20composites%29%20engineer&location=United%20States&f_TPR=r259200&f_E=2,3",
-                "https://www.linkedin.com/jobs/search/?keywords=%22AST%20SpaceMobile%22%20%28quality%20OR%20manufacturing%20OR%20process%20OR%20supplier%29%20engineer&location=United%20States&f_TPR=r259200&f_E=2,3",
-                # Micron & Target Mfg Anchors
-                "https://www.linkedin.com/jobs/search/?keywords=%22Micron%22%20%28quality%20OR%20process%29%20engineer&location=United%20States&f_TPR=r259200&f_E=2,3",
-                # Aerospace & Composites Quality
-                "https://www.linkedin.com/jobs/search/?keywords=%28%22aerospace%22%20OR%20%22composites%22%29%20AND%20%28%22manufacturing%20quality%22%20OR%20%22supplier%20quality%22%20OR%20%22process%20engineer%22%29&location=United%20States&f_TPR=r259200&f_E=2,3"
-            ]
+            ST = search_terms()
+            queries_p1 = []
+            # Anchor companies, batched so one query covers several.
+            for i in range(0, len(ST["anchors"]), 3):
+                batch = ST["anchors"][i:i + 3]
+                queries_p1.append(linkedin_query(f'{_or(batch)} AND {_or(ST["titles"])}'))
+            # Top-priority domain by title keywords.
+            if ST["domain_titles"]:
+                queries_p1.append(linkedin_query(f'{_or(ST["domain_titles"][:6])} AND {_or(ST["titles"])}'))
             apify_results = run_apify_linkedin_search(queries_p1, max_charge_usd=0.25, count=25)
             for item in apify_results:
                 raw_jobs.append(normalize_job(item, source_type="linkedin_apify", pass_num=1))
                 
     elif pass_num == 2:
         # Pass 2: Semiconductor & Fab High-Sponsors + CleanTech / EV Sponsors
-        print("Executing Pass 2: Semiconductor Fab & EV Sponsors (Micron, Applied Materials, KLA, ASML, Rivian, Cummins)...")
-        queries_p2 = [
-            "https://www.linkedin.com/jobs/search/?keywords=%28%22Applied%20Materials%22%20OR%20%22KLA%22%20OR%20%22ASML%22%20OR%20%22Lam%20Research%22%29%20AND%20%28%22quality%20engineer%22%20OR%20%22process%20engineer%22%20OR%20%22manufacturing%20engineer%22%20OR%20%22yield%20engineer%22%29&location=United%20States&f_TPR=r604800&f_E=2,3",
-            "https://www.linkedin.com/jobs/search/?keywords=%28%22Rivian%22%20OR%20%22Cummins%22%20OR%20%22BorgWarner%22%20OR%20%22First%20Solar%22%20OR%20%22Panasonic%20Energy%22%29%20AND%20%28%22quality%20engineer%22%20OR%20%22process%20engineer%22%20OR%20%22manufacturing%20engineer%22%29&location=United%20States&f_TPR=r604800&f_E=2,3"
-        ]
+        ST = search_terms()
+        print("Executing Pass 2: priority-domain companies from config/search_profile.json ...")
+        queries_p2 = []
+        for i in range(0, len(ST["domain_companies"]), 5):
+            batch = ST["domain_companies"][i:i + 5]
+            queries_p2.append(linkedin_query(f'{_or(batch)} AND {_or(ST["titles"])}'))
         apify_results = run_apify_linkedin_search(queries_p2, max_charge_usd=0.25, count=40)
         for item in apify_results:
             raw_jobs.append(normalize_job(item, source_type="linkedin_apify_p2", pass_num=2))
             
     elif pass_num == 3:
-        # Pass 3: Broad Open Quality Engineering with Core Tools (PFMEA, SPC, 8D, AS9100, GD&T, CAPA)
-        print("Executing Pass 3: Open Quality Engineering & Regulated Mfg Sponsors...")
-        # Quality/process TECHNICIAN roles are now in scope — they routinely convert
-        # into engineering. (Pure machinist/operator roles are still dropped by the
-        # ranker's technician gate.) f_E=1 added to catch entry technician postings.
-        tech_kw = ('("Quality Technician" OR "Process Technician" OR "Manufacturing Technician" '
-                   'OR "CMM Technician" OR "Quality Inspection Technician" OR "Metrology Technician") '
-                   'AND ("PFMEA" OR "SPC" OR "root cause" OR "AS9100" OR "ISO 9001" OR "GD&T")')
-        queries_p3 = [
-            "https://www.linkedin.com/jobs/search/?keywords=%28%22Quality%20Engineer%22%20OR%20%22Supplier%20Quality%20Engineer%22%29%20AND%20%28%22PFMEA%22%20OR%20%22SPC%22%20OR%20%228D%22%20OR%20%22AS9100%22%20OR%20%22GD%26T%22%29&location=United%20States&f_TPR=r604800&f_E=2,3",
-            "https://www.linkedin.com/jobs/search/?keywords=%28%22Process%20Engineer%22%20OR%20%22Manufacturing%20Engineer%22%20OR%20%22Composites%20Engineer%22%29%20AND%20%28%22Root%20Cause%22%20OR%20%22Continuous%20Improvement%22%20OR%20%22Six%20Sigma%22%29&location=United%20States&f_TPR=r604800&f_E=2,3",
-            f"https://www.linkedin.com/jobs/search/?keywords={urllib.parse.quote_plus(tech_kw)}&location=United%20States&f_TPR=r604800&f_E=1,2,3",
-        ]
+        # Pass 3: broad search across every configured title, plus adjacent /
+        # technician-level titles, qualified by the candidate's own toolkit terms.
+        ST = search_terms()
+        print("Executing Pass 3: broad search across configured role titles ...")
+        toolkit_expr = _or(ST["toolkit"]) if ST["toolkit"] else ""
+        queries_p3 = [linkedin_query(
+            f'{_or(ST["titles"])}' + (f' AND {toolkit_expr}' if toolkit_expr else ''))]
+        if ST["adjacent_titles"]:
+            # f_E=1 also catches entry-level / technician postings, which routinely convert.
+            queries_p3.append(linkedin_query(
+                f'{_or(ST["adjacent_titles"])}' + (f' AND {toolkit_expr}' if toolkit_expr else ''),
+                experience="1,2,3"))
         apify_results = run_apify_linkedin_search(queries_p3, max_charge_usd=0.30, count=40)
         for item in apify_results:
             raw_jobs.append(normalize_job(item, source_type="linkedin_apify_p3", pass_num=3))
@@ -373,18 +376,16 @@ def main():
         # Pass 4: Curated International — Europe + Australia (+ global sponsors).
         # New-strategy expansion beyond the US. Results bypass the US-only geo gate
         # (source ends with "intl"). Engineer AND quality/process technician roles.
-        print("Executing Pass 4: Curated International (Europe + Australia)...")
-        intl_kw = ('("Quality Engineer" OR "Process Engineer" OR "Manufacturing Engineer" '
-                   'OR "Quality Technician" OR "Process Technician") '
-                   'AND ("PFMEA" OR "SPC" OR "root cause" OR "AS9100" OR "ISO 9001" '
-                   'OR "continuous improvement")')
-        intl_locations = ["European Union", "Australia"]  # extend as needed
-        queries_intl = [
-            "https://www.linkedin.com/jobs/search/?keywords="
-            f"{urllib.parse.quote_plus(intl_kw)}&location={urllib.parse.quote_plus(loc)}"
-            "&f_TPR=r604800&f_E=1,2,3"
-            for loc in intl_locations
-        ]
+        ST = search_terms()
+        intl_locations = ST["intl_locations"]
+        if not intl_locations:
+            print("Pass 4 skipped: no search.intl_locations configured.")
+            return []
+        print(f"Executing Pass 4: international ({', '.join(intl_locations)}) ...")
+        intl_titles = ST["titles"] + ST["adjacent_titles"]
+        intl_kw = _or(intl_titles) + (f' AND {_or(ST["toolkit"])}' if ST["toolkit"] else '')
+        queries_intl = [linkedin_query(intl_kw, location=loc, experience="1,2,3")
+                        for loc in intl_locations]
         apify_results = run_apify_linkedin_search(queries_intl, max_charge_usd=0.30, count=40)
         for item in apify_results:
             raw_jobs.append(normalize_job(item, source_type="linkedin_apify_intl", pass_num=4))

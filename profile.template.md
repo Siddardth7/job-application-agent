@@ -57,7 +57,7 @@ your own voice, not in résumé language.]
 
 ## Base Resume
 
-- **Master template:** `Resume/Final_Resumes/Resume_NewStrategy_Master.tex`
+- **Master template:** `Resume/Final_Resumes/Resume_Master.tex`
 - **Truth source:** `data/candidate_resume_database.json` — every claim the customiser can
   make must already exist there. Nothing is invented at tailoring time.
 - **Page limit:** [1 / 2] page, enforced by `tools/verify_pdf.py`.

@@ -10,7 +10,7 @@ re-onboard from scratch. Destructive: it deletes real work.
 - **`profile`** — the setup output: `profile.md`, `config/search_profile.json`,
   `data/candidate_resume_database.json`, `playbook/P1_03_*.md`, `playbook/P1_06_*.md`,
   `company_intel.md`, and the personalized header in
-  `Resume/Final_Resumes/Resume_NewStrategy_Master.tex`.
+  `Resume/Final_Resumes/Resume_Master.tex`.
 - **`history`** — runtime state: `seen_jobs.csv`, `tracker_data.json`, `.pipeline/*`,
   `daily_run/`, `JDs/`, `learning_log.md`.
 - **`documents`** — everything under `documents/` except the `.gitkeep` files and README.

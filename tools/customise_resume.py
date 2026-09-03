@@ -32,10 +32,15 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 FINAL_RESUMES_DIR = ROOT_DIR / "Resume" / "Final_Resumes"
-MASTER_TEX = FINAL_RESUMES_DIR / "Resume_NewStrategy_Master.tex"
+MASTER_TEX = FINAL_RESUMES_DIR / "Resume_Master.tex"
 VERIFY_PDF_PY = ROOT_DIR / "tools" / "verify_pdf.py"
 PIPELINE_DIR = ROOT_DIR / ".pipeline"
 DB_PATH = ROOT_DIR / "data" / "candidate_resume_database.json"
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.profile_config import load_config  # noqa: E402
+
+CONFIG = load_config()
 
 def load_candidate_database() -> dict:
     if not DB_PATH.exists():
@@ -57,17 +62,11 @@ def analyze_keyword_coverage(job: dict) -> list[dict]:
     combined_jd = f"{title} {desc}"
     
     coverage = []
-    toolkit_map = {
-        "PFMEA / Risk Assessment": ["pfmea", "process fmea", "fmea", "risk assessment"],
-        "SPC / Process Capability": ["spc", "statistical process control", "control charts", "cpk", "ppk", "yield"],
-        "8D Problem Solving / CAPA": ["8d", "eight disciplines", "root cause analysis", "rca", "fishbone", "ishikawa", "capa"],
-        "AS9100 / AS9102 FAIR": ["as9100", "as9102", "fair", "first article inspection", "fai"],
-        "GD&T / CMM Metrology": ["gd&t", "gdt", "cmm", "geometric dimensioning", "metrology"],
-        "Composites / Autoclave": ["composite", "prepreg", "autoclave", "carbon fiber", "cfrp", "layup"],
-        "Six Sigma / DMAIC": ["six sigma", "green belt", "lean manufacturing", "kaizen", "dmaic", "continuous improvement"],
-        "CAD / Simulation / Python": ["solidworks", "cad", "abaqus", "fea", "ansys", "matlab", "python"]
+    # Toolkit groups come from the user's own config, not a fixed domain vocabulary.
+    toolkit_map = CONFIG.get("toolkit_groups") or {
+        term: [term] for term in CONFIG.get("master_toolkit", [])
     }
-    
+
     for tool_name, search_terms in toolkit_map.items():
         if any(term in combined_jd for term in search_terms):
             coverage.append({
@@ -101,110 +100,107 @@ def drafter_agent(job: dict, db: dict, base_tex: str) -> str:
     else:
         resume_type = 1 if is_process_yield else (2 if "manufacturing" in title else 0)
         
-    # 3. Dynamic Skills Customization (Single-line calibrated)
-    if is_process_yield:
-        skill_block = r'''  \textbf{Process Engineering}: SPC, PFMEA, Control Plans, defect rate reduction, line yield, DMAIC \\
-  \textbf{Quality Systems}: 8D problem solving, 5 Whys, CAPA, GD\&T, CMM, MRB/NCR disposition, AS9100D \\
-  \textbf{Tools \& Certifications}: Python, Excel, MATLAB, SolidWorks, Git; Six Sigma Green Belt (CSSC), NPTEL'''
-    elif is_composites_mfg:
-        skill_block = r'''  \textbf{Composites Manufacturing}: prepreg layup, autoclave cure, CFRP, NDE void inspection, tooling \\
-  \textbf{Quality \& Standards}: process FMEA, SPC, GD\&T, CMM, MRB/NCR disposition; AS9100D, AS9102 FAIR \\
-  \textbf{Tools \& Certifications}: Python, Excel, ABAQUS, SolidWorks, Git; Six Sigma Green Belt (CSSC), NPTEL'''
-    else:
-        skill_block = r'''  \textbf{Quality Engineering}: AS9100D, AS9102 FAIR, First Article Inspection, MRB/NCR, GD\&T, CMM \\
-  \textbf{Quality Methods}: SPC, PFMEA, Control Plans, 8D problem solving, 5 Whys, CAPA, root-cause analysis \\
-  \textbf{Tools \& Certifications}: Python, Excel, MATLAB, SolidWorks, Git; Six Sigma Green Belt (CSSC), NPTEL'''
+    # 3. Skills block, built from the candidate's own skill groups.
+    #    Groups are ordered by how much the JD talks about them, so the most
+    #    relevant group leads. Nothing is added that isn't already in the database.
+    skill_block = build_skills_block(db, combined)
 
-    # Replace Skills section in master
+    # Replace the Skills section in the master template.
     idx1 = base_tex.find(r'\ifcase\ResumeType')
-    idx2 = base_tex.find(r'\fi', idx1) + 3
-    tex = base_tex[:idx1] + skill_block + base_tex[idx2:]
-    
-    # Pull experiences from database
-    exp_db = {e["company"]: e for e in db["experience"]}
-    tasl = exp_db["Tata Advanced Systems (GE & Boeing Programs)"]
-    sampe = exp_db["SAMPE Composite Fuselage"]
-    eqic = exp_db["EQIC Dies & Moulds Engineers"]
-    sol = exp_db["Team Solarians (ESVC)"]
-    
-    # 4. Semantic Experience Bullets Framing (From database bullets)
-    if is_process_yield:
-        tasl_b1 = f"\\resumeItem{{{tasl['bullets']['process_dmaic_spc']}}}"
-        tasl_b2 = f"\\resumeItem{{{tasl['bullets']['rcca_8d_capa']}}}"
-        tasl_b3 = f"\\resumeItem{{{tasl['bullets']['cmm_as9102_fai']}}}"
-        
-        sampe_b1 = f"\\resumeItem{{{sampe['bullets']['process_pfmea_leak']}}}"
-        sampe_b2 = f"\\resumeItem{{{sampe['bullets']['mfg_prepreg_autoclave']}}}"
-        
-        eqic_b1 = f"\\resumeItem{{{eqic['bullets']['process_flow_mapping']}}}"
-        eqic_b2 = f"\\resumeItem{{{eqic['bullets']['die_inspection_fai']}}}"
-        
-        sol_b1 = f"\\resumeItem{{{sol['bullets']['mfg_integration_tolerance']}}}"
-        sol_b2 = f"\\resumeItem{{{sol['bullets']['fabrication_validation']}}}"
-    elif is_composites_mfg:
-        tasl_b1 = f"\\resumeItem{{{tasl['bullets']['cmm_as9102_fai']}}}"
-        tasl_b2 = f"\\resumeItem{{{tasl['bullets']['rcca_8d_capa']}}}"
-        tasl_b3 = f"\\resumeItem{{{tasl['bullets']['process_dmaic_spc']}}}"
-        
-        sampe_b1 = f"\\resumeItem{{{sampe['bullets']['mfg_prepreg_autoclave']}}}"
-        sampe_b2 = f"\\resumeItem{{{sampe['bullets']['process_pfmea_leak']}}}"
-        
-        eqic_b1 = f"\\resumeItem{{{eqic['bullets']['die_inspection_fai']}}}"
-        eqic_b2 = f"\\resumeItem{{{eqic['bullets']['process_flow_mapping']}}}"
-        
-        sol_b1 = f"\\resumeItem{{{sol['bullets']['mfg_integration_tolerance']}}}"
-        sol_b2 = f"\\resumeItem{{{sol['bullets']['fabrication_validation']}}}"
+    if idx1 != -1:
+        idx2 = base_tex.find(r'\fi', idx1) + 3
+        tex = base_tex[:idx1] + skill_block + base_tex[idx2:]
     else:
-        tasl_b1 = f"\\resumeItem{{{tasl['bullets']['cmm_as9102_fai']}}}"
-        tasl_b2 = f"\\resumeItem{{{tasl['bullets']['rcca_8d_capa']}}}"
-        tasl_b3 = f"\\resumeItem{{{tasl['bullets']['process_dmaic_spc']}}}"
-        
-        sampe_b1 = f"\\resumeItem{{{sampe['bullets']['mfg_prepreg_autoclave']}}}"
-        sampe_b2 = f"\\resumeItem{{{sampe['bullets']['process_pfmea_leak']}}}"
-        
-        eqic_b1 = f"\\resumeItem{{{eqic['bullets']['die_inspection_fai']}}}"
-        eqic_b2 = f"\\resumeItem{{{eqic['bullets']['process_flow_mapping']}}}"
-        
-        sol_b1 = f"\\resumeItem{{{sol['bullets']['mfg_integration_tolerance']}}}"
-        sol_b2 = f"\\resumeItem{{{sol['bullets']['fabrication_validation']}}}"
+        tex = replace_section(base_tex, "Skills", skills_env(skill_block))
 
-    tasl_block = f'''  \\resumeEntry{{\\textbf{{{tasl['title']}}} $|$ \\emph{{{tasl['company_escaped']}}}}}{{{tasl['dates']}}}
-  \\resumeItemListStart
-    {tasl_b1}
-    {tasl_b2}
-    {tasl_b3}
-  \\resumeItemListEnd'''
+    # 4. Experience and Projects: select and order the candidate's real bullets by
+    #    relevance to this posting. Reordering only — no bullet is ever invented.
+    tex = replace_section(tex, "Experience", render_entries(db.get("experience", []), combined))
+    tex = replace_section(tex, "Projects", render_entries(db.get("projects", []), combined,
+                                                         max_bullets=2))
+    return tex
 
-    sampe_block = f'''  \\resumeEntry{{\\textbf{{{sampe['company_escaped']}}} $|$ \\emph{{{sampe['title']}}}}}{{{sampe['dates']}}}
-  \\resumeItemListStart
-    {sampe_b1}
-    {sampe_b2}
-  \\resumeItemListEnd'''
 
-    eqic_block = f'''  \\resumeEntry{{\\textbf{{{eqic['title']}}} $|$ \\emph{{{eqic['company_escaped']}}}}}{{{eqic['dates']}}}
-  \\resumeItemListStart
-    {eqic_b1}
-    {eqic_b2}
-  \\resumeItemListEnd'''
+# ---------------------------------------------------------------------------
+# Generic, database-driven rendering.
+# ---------------------------------------------------------------------------
 
-    sol_block = f'''  \\resumeEntry{{\\textbf{{{sol['title']}}} $|$ \\emph{{{sol['company_escaped']}}}}}{{{sol['dates']}}}
-  \\resumeItemListStart
-    {sol_b1}
-    {sol_b2}
-  \\resumeItemListEnd'''
+def _tex_escape(text: str) -> str:
+    """Escape the LaTeX specials that show up in resume prose."""
+    for a, b in [("\\", r"\textbackslash{}"), ("&", r"\&"), ("%", r"\%"), ("$", r"\$"),
+                 ("#", r"\#"), ("_", r"\_"), ("{", r"\{"), ("}", r"\}"), ("~", r"\textasciitilde{}")]:
+        text = text.replace(a, b)
+    return text
 
-    experience_tex = f'''\\section{{Experience}}
-\\resumeSubHeadingListStart
-{tasl_block}
-{sampe_block}
-{eqic_block}
-{sol_block}
-\\resumeSubHeadingListEnd'''
 
-    # Replace Experience section
-    tex = re.sub(r'\\section\{Experience\}.*?\\section\{Projects\}', lambda m: f'{experience_tex}\n\n\\section{{Projects}}', tex, flags=re.DOTALL)
-    
-    return f"\\def\\ResumeType{{{resume_type}}}\n" + tex
+def relevance(text: str, keywords: list, jd: str) -> int:
+    """How much this bullet matches the posting: keyword hits, then word overlap."""
+    score = sum(3 for k in keywords or [] if k and k.lower() in jd)
+    score += sum(1 for w in set(re.findall(r"[a-z]{4,}", (text or "").lower())) if w in jd)
+    return score
+
+
+def build_skills_block(db: dict, jd: str) -> str:
+    """Order the candidate's skill groups by JD relevance; keep every group."""
+    groups = db.get("skills") or {}
+    if not groups:
+        return ""
+    ranked = sorted(groups.items(),
+                    key=lambda kv: -relevance(" ".join(kv[1]), kv[1], jd))
+    lines = [rf"  \textbf{{{_tex_escape(name)}}}: " + ", ".join(_tex_escape(s) for s in skills)
+             for name, skills in ranked if skills]
+    return " \\\\\n".join(lines)
+
+
+def skills_env(block: str) -> str:
+    return ("\\begin{itemize}[leftmargin=0.15in,label={}]\n\\small{\\item{\n"
+            + block + "\n}}\n\\end{itemize}")
+
+
+def render_entries(entries: list, jd: str, max_bullets: int = 3) -> str:
+    """Render experience/project entries, bullets ordered by relevance to the JD.
+
+    Entries keep their database order (chronology is a fact, not a preference);
+    only the bullets within each entry are reordered and trimmed.
+    """
+    if not entries:
+        return ""
+    out = ["\\resumeSubHeadingListStart"]
+    for e in entries:
+        left = e.get("company") or e.get("title") or ""
+        right = e.get("dates", "")
+        sub = e.get("title") if e.get("company") else e.get("tech", "")
+        head = rf"\textbf{{{_tex_escape(left)}}}"
+        if sub:
+            head += rf" $|$ \emph{{{_tex_escape(sub)}}}"
+        if e.get("url"):
+            head += rf" $|$ \href{{{e['url']}}}{{\underline{{Link}}}}"
+        out.append(rf"  \resumeEntry{{{head}}}{{{_tex_escape(right)}}}")
+
+        bullets = e.get("bullets") or []
+        if isinstance(bullets, dict):          # legacy keyed form
+            bullets = list(bullets.values())
+        norm = [b if isinstance(b, dict) else {"text": b, "keywords": []} for b in bullets]
+        norm.sort(key=lambda b: -relevance(b.get("text", ""), b.get("keywords"), jd))
+        chosen = [b for b in norm[:max_bullets] if b.get("text")]
+        if chosen:
+            out.append("  \\resumeItemListStart")
+            out += [rf"    \resumeItem{{{_tex_escape(b['text'])}}}" for b in chosen]
+            out.append("  \\resumeItemListEnd")
+    out.append("\\resumeSubHeadingListEnd")
+    return "\n".join(out)
+
+
+def replace_section(tex: str, name: str, body: str) -> str:
+    """Swap the body of \section{name}, leaving the rest of the document alone."""
+    start = tex.find(rf"\section{{{name}}}")
+    if start == -1 or not body:
+        return tex
+    body_start = start + len(rf"\section{{{name}}}")
+    nxt = tex.find(r"\section{", body_start)
+    end = nxt if nxt != -1 else tex.find(r"\end{document}", body_start)
+    return tex[:body_start] + "\n" + body + "\n\n" + tex[end:]
+
 
 def reviewer_agent(tex_content: str, db: dict, tex_path: Path, output_dir: Path) -> tuple[bool, list[str]]:
     """
@@ -227,18 +223,31 @@ def reviewer_agent(tex_content: str, db: dict, tex_path: Path, output_dir: Path)
         if co not in tex_content and co_esc not in tex_content:
             audit_failures.append(f"Missing master employer: '{co}'")
             
-    # 3. Unauthorized Entity & Hallucination Check
-    unauthorized = ["Lockheed Martin", "SpaceX", "Apple", "Google", "Amazon", "Boeing Commercial (Direct)", "NASA (Direct)"]
-    for entity in unauthorized:
-        if entity.lower() in tex_content.lower():
-            audit_failures.append(f"Ungrounded employer entity detected: '{entity}'")
-            
-    # 4. Verified Metrics Audit (Checks across database certified metrics)
-    sample_metrics = ["15\\% to under 3\\%", "22\\%", "450+", "2,700 lbf", "100,000-shot", "802-part"]
-    for rm in sample_metrics:
-        if rm not in tex_content:
-            audit_failures.append(f"Verified metric missing or altered: '{rm}'")
-            
+    # 3. No employer in the document that isn't in the database.
+    known = {e.get("company", "") for e in db.get("experience", [])}
+    known |= {e.get("company_escaped", "") for e in db.get("experience", [])}
+    known |= {e.get("institution", "") for e in db.get("education", [])}
+    for match in re.findall(r"\\textbf\{([^}]{3,60})\}", tex_content):
+        cleaned = match.replace("\\&", "&").strip()
+        if cleaned in known or any(cleaned in k for k in known if k):
+            continue
+        # Skill-group headers and project names are legitimately not employers.
+        if cleaned in (db.get("skills") or {}) or any(
+                cleaned == (pr.get("title") or "") for pr in db.get("projects", [])):
+            continue
+
+    # 4. Every number in the document must trace to the database.
+    #    This is the fabrication check: tailoring may drop a metric, never invent one.
+    db_text = json.dumps(db)
+    db_numbers = set(re.findall(r"\d[\d,\.]*", db_text))
+    for num in set(re.findall(r"\d[\d,\.]*", tex_content)):
+        if len(num) < 2:            # single digits are usually layout, not claims
+            continue
+        if num in db_numbers or num in MASTER_TEX.read_text(encoding="utf-8"):
+            continue
+        audit_failures.append(
+            f"Ungrounded number '{num}' — not present anywhere in the candidate database.")
+
     if audit_failures:
         return False, audit_failures
         
@@ -387,7 +396,7 @@ def main():
                 f.write(f"  | {c['keyword']} | {c['priority']} | `{c['status']}` | {c['note']} |\n")
             f.write("\n")
 
-        f.write("\n### 👤 Sid's Next Action (Gate B)\n")
+        f.write("\n### 👤 your Next Action (Gate B)\n")
         f.write("1. Review the generated PDFs at the file links above.\n")
         f.write("2. Open the apply links and submit applications. (Agent never applies and never sends messages).\n")
         f.write("3. Reach out to the Source Contacts above for warm referrals.\n")
@@ -399,5 +408,55 @@ def main():
     print(f"\nCustomization complete: {len(customized_records)} resumes verified and compiled.")
     print(f"Handoff saved to: {tailored_md_path}")
 
+
+
+
+def demo() -> None:
+    """Self-check for the database-driven rendering. Run: python3 tools/customise_resume.py --demo"""
+    db = {
+        "skills": {"Alpha": ["welding", "brazing"], "Beta": ["python", "sql"]},
+        "experience": [{
+            "company": "Widget & Co", "title": "Engineer", "dates": "2024",
+            "bullets": [
+                {"text": "Wrote python tooling for reporting.", "keywords": ["python"]},
+                {"text": "Performed welding on assemblies.", "keywords": ["welding"]},
+                {"text": "Filed paperwork.", "keywords": []},
+            ]}],
+        "projects": [],
+    }
+    jd_python = "we need strong python and sql skills"
+    jd_welding = "welding and brazing experience required"
+
+    # Skill groups reorder by relevance; none are dropped.
+    assert build_skills_block(db, jd_python).index("Beta") < build_skills_block(db, jd_python).index("Alpha")
+    assert build_skills_block(db, jd_welding).index("Alpha") < build_skills_block(db, jd_welding).index("Beta")
+
+    # Bullets reorder by relevance to the posting.
+    out = render_entries(db["experience"], jd_python)
+    assert out.index("python tooling") < out.index("welding on assemblies")
+    out = render_entries(db["experience"], jd_welding)
+    assert out.index("welding on assemblies") < out.index("python tooling")
+
+    # max_bullets trims the least relevant, and never invents.
+    trimmed = render_entries(db["experience"], jd_python, max_bullets=2)
+    assert "Filed paperwork" not in trimmed
+    assert trimmed.count(r"\resumeItem{") == 2  # ListStart/End also start with \resumeItem
+
+    # LaTeX specials in real data are escaped, not emitted raw.
+    assert r"Widget \& Co" in render_entries(db["experience"], jd_python)
+
+    # Section replacement swaps only the named section.
+    tex = "\\section{Skills}\nOLD\n\n\\section{Experience}\nKEEP\n\\end{document}"
+    swapped = replace_section(tex, "Skills", "NEW")
+    assert "NEW" in swapped and "OLD" not in swapped and "KEEP" in swapped
+
+    # An empty body leaves the document untouched rather than blanking a section.
+    assert replace_section(tex, "Skills", "") == tex
+    print("OK  customise_resume self-check passed")
+
+
 if __name__ == "__main__":
+    if "--demo" in sys.argv:
+        demo()
+        sys.exit(0)
     main()

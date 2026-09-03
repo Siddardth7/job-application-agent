@@ -45,7 +45,7 @@ may become "Contributed to PFMEA development". It may not become "Led PFMEA deve
   overflows is a failed build, not a warning.
 - ASCII dates, no ligature glyphs, no unescaped LaTeX characters — the PDF text layer is
   extracted and checked so the ATS parses it cleanly.
-- Master template: `Resume/Final_Resumes/Resume_NewStrategy_Master.tex`. One template for
+- Master template: `Resume/Final_Resumes/Resume_Master.tex`. One template for
   every track; the track label steers emphasis and section order, not which file is opened.
 
 ## 5. Output

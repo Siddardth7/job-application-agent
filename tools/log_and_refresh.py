@@ -90,7 +90,7 @@ def insert_to_supabase(records: list[dict], dry_run: bool = False) -> int:
         contact_sources.append({**rec, "job_id": job_id})
 
         # Two-track model (matches tools/gate_and_score.py): T2 = Curated Target
-        # lane (Joby/AST/Micron + top aerospace fit), T1 = Broad-Fit Direct Apply.
+        # lane (anchor companies + top-domain fit), T1 = Broad-Fit Direct Apply.
         # T3 is retired — it was the old three-track era and is what left ~150
         # historical rows mis-tagged. Drive the tag off the scorer's lane, not the
         # fetch-time domain label.

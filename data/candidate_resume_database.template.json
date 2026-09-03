@@ -1,75 +1,107 @@
 {
+  "_README": "Truth source. The customiser may only make claims that appear here. Every metric must be one you actually achieved \u2014 if you don't have the number, leave the bullet without one. /setup fills this from your documents; edit by hand any time.",
   "candidate": {
-    "name": "Jane Doe",
+    "name": "[YOUR NAME]",
     "contact": {
-      "location": "San Francisco, CA",
-      "phone": "+1 (555) 019-2834",
-      "email": "janedoe@example.com",
-      "linkedin": "https://linkedin.com/in/janedoe",
-      "github": "https://github.com/janedoe",
-      "portfolio": "https://janedoe.github.io"
+      "location": "[CITY, STATE]",
+      "phone": "[PHONE]",
+      "email": "[EMAIL]",
+      "linkedin": "[LINKEDIN URL]",
+      "github": "[GITHUB URL]",
+      "portfolio": "[PORTFOLIO URL]"
     },
-    "work_authorization": "F-1 OPT STEM (No sponsorship required initially, H-1B sponsorship needed thereafter)"
+    "work_authorization": "[e.g. US citizen | Permanent resident | F-1 OPT, needs H-1B sponsorship]",
+    "seniority": "[e.g. new grad | 0-2 years | 3-5 years]"
   },
   "education": [
     {
-      "institution": "University of California, Berkeley",
-      "degree": "M.S. Mechanical Engineering",
-      "dates": "Aug 2023 -- May 2025",
-      "coursework": "Finite Element Analysis, Advanced Manufacturing, Control Systems, Quality Engineering"
-    },
-    {
-      "institution": "State University",
-      "degree": "B.S. Mechanical Engineering",
-      "dates": "Aug 2019 -- May 2023",
-      "coursework": "Thermodynamics, Mechanics of Materials, CAD/CAM, Manufacturing Processes"
+      "institution": "[UNIVERSITY]",
+      "degree": "[DEGREE]",
+      "dates": "[MON YEAR -- MON YEAR]",
+      "location": "[CITY, STATE]",
+      "gpa": "[GPA or omit]",
+      "coursework": [
+        "[COURSE]",
+        "[COURSE]"
+      ]
     }
   ],
   "certifications": [
     {
-      "name": "Six Sigma Green Belt (SSGB)",
-      "issuer": "ASQ / IISE"
+      "name": "[CERTIFICATION]",
+      "issuer": "[ISSUING BODY]",
+      "year": "[YEAR]"
     }
   ],
   "experience": [
     {
-      "company": "Acme Manufacturing",
-      "company_escaped": "Acme Manufacturing",
-      "title": "Manufacturing Quality Engineer Intern",
-      "dates": "May 2024 -- Aug 2024",
-      "certified_metrics": {
-        "scrap_reduction": "14%",
-        "cpk_improvement": "from 1.12 to 1.45"
-      },
+      "company": "[COMPANY]",
+      "title": "[JOB TITLE]",
+      "dates": "[MON YEAR -- MON YEAR]",
+      "location": "[CITY, STATE]",
       "bullets": [
-        "Led statistical process control (SPC) implementation across 3 assembly lines, improving Cpk from 1.12 to 1.45 and reducing scrap by 14\\%.",
-        "Developed and updated Process FMEAs (PFMEA) and Control Plans in compliance with ISO 9001 and AS9100 standards.",
-        "Facilitated 8D root cause analysis and corrective action (CAPA) investigations for non-conformances (NCRs), eliminating recurring assembly defects."
+        {
+          "text": "[Action verb + what you did + measurable outcome]",
+          "keywords": [
+            "[skill this bullet proves]",
+            "[tool used]"
+          ],
+          "metric": "[the real number, or null]"
+        },
+        {
+          "text": "[Achievement bullet]",
+          "keywords": [
+            "[skill]"
+          ],
+          "metric": null
+        }
       ]
     }
   ],
   "projects": [
     {
-      "key": "spc_dashboard",
-      "title": "Automated SPC & Quality Dashboard",
-      "tech": "Python, Streamlit, Pandas, SciPy",
-      "url": "https://github.com/example/spc-dashboard",
-      "dates": "Jan 2024 -- Apr 2024",
+      "key": "[short_slug]",
+      "title": "[PROJECT NAME]",
+      "tech": "[TECH / METHODS]",
+      "url": "[PROJECT URL]",
+      "dates": "[MON YEAR -- MON YEAR]",
       "bullets": [
-        "Built production-grade SPC dashboard implementing Western Electric and Nelson rules for automated out-of-control detection.",
-        "Integrated automated gauge repeatability and reproducibility (Gage R\\&R) calculations and process capability analysis (Cp/Cpk)."
-      ]
-    },
-    {
-      "key": "pfmea_tool",
-      "title": "AIAG-VDA PFMEA & Control Plan Generator",
-      "tech": "Python, SQLite, Streamlit",
-      "url": "https://github.com/example/pfmea-tool",
-      "dates": "Aug 2024 -- Dec 2024",
-      "bullets": [
-        "Architected relational schema mapping process steps, failure modes, effects, and severity/occurrence/detection ratings.",
-        "Automated 1-to-1 traceability from PFMEA high-RPN risks directly to inspection frequencies in production control plans."
+        {
+          "text": "[What you built and the problem it solves]",
+          "keywords": [
+            "[skill]"
+          ],
+          "metric": null
+        },
+        {
+          "text": "[Technique, scale, or result]",
+          "keywords": [
+            "[skill]"
+          ],
+          "metric": "[number or null]"
+        }
       ]
     }
-  ]
+  ],
+  "skills": {
+    "[SKILL GROUP 1]": [
+      "[skill]",
+      "[skill]"
+    ],
+    "[SKILL GROUP 2]": [
+      "[skill]",
+      "[skill]"
+    ],
+    "[SKILL GROUP 3]": [
+      "[tool]",
+      "[tool]"
+    ]
+  },
+  "resume_variants": {
+    "_README": "Leave as a single 'default' variant if you send one resume for everything. /setup adds entries here only if you asked for variants.",
+    "default": {
+      "resume_type": 0,
+      "emphasis": "[what this variant leads with]"
+    }
+  }
 }

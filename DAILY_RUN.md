@@ -1,32 +1,32 @@
-# DAILY RUN — Job-Search Orchestrator (Fortify 45-Day Sprint)
+# DAILY RUN — Job-Search Orchestrator
 
-## ★ ACTIVE DAILY FLOW (Hardened Dual-Track Setup)
+## Active daily flow
 
 The daily run executes four unified stages with two human gates:
 
 ```
 Step 1: FETCH (ATS + Apify) ──▶ Step 2: GATE 0 & SCORE ──▶ 🧑 GATE A (Shortlist Approval)
                                                                  │
-🧑 GATE B (Sid Applies & Networks) ◀── Step 4: SUPABASE & REBUILD ◀── Step 3: CUSTOMIZE & PDF VERIFY
+🧑 GATE B (you Applies & Networks) ◀── Step 4: SUPABASE & REBUILD ◀── Step 3: CUSTOMIZE & PDF VERIFY
 ```
 
 ### Stage 1: Fetch (`python3 tools/fetch_jobs.py --pass=N`)
-- **Direct ATS Scan**: Scans public Greenhouse, Workday, SmartRecruiters, and Lever boards (free, zero-token) for target companies (AST SpaceMobile, Supernal, Archer Aviation, Beta Technologies, Lucid Motors, Re:Build Manufacturing, BorgWarner, Robert Bosch, etc.).
-- **Apify LinkedIn Scraper**: Runs targeted queries for anchor targets (Joby Aviation, AST SpaceMobile, Micron) and aerospace/composites manufacturing & quality roles with $\le \$0.50$ spend cap and compact field extraction.
-  - **Pass 1** — anchors + aerospace/composites (US). **Pass 2** — semiconductor & EV sponsors (US). **Pass 3** — broad quality/process **+ quality/process/CMM technician** roles (US). **Pass 4** — **curated international (Europe + Australia)**, engineer *and* technician roles; these bypass the US-only geo gate.
+- **Direct ATS Scan**: Scans public Greenhouse, Workday, SmartRecruiters, and Lever boards (free, zero-token) for the career boards listed in `tools/portals.json` (written by `/setup` from your anchor companies).
+- **Apify LinkedIn Scraper**: Runs targeted queries for your `target_anchors` and `search.role_titles` from `config/search_profile.json`, with $\le \$0.50$ spend cap and compact field extraction.
+  - **Pass 1** — anchor companies + your top-priority domain. **Pass 2** — remaining priority domains. **Pass 3** — broad search across all `role_titles`, including adjacent/technician-level titles. **Pass 4** — international roles, which bypass the geo gate in `search.blocked_locations`.
 - **Scope (new strategy):** Search area is **global** — US plus Europe, Australia, and beyond (run `--pass=4`). **Quality & process technician roles are in scope** (they convert into engineering); pure machinist/operator/assembler roles stay dropped by the ranker's technician gate.
 - **Dedup**: Gated against `seen_jobs.csv` ledger.
 - **Handoff**: `.pipeline/fetched.json` & `.pipeline/fetched.md`.
 
 ### Stage 2: Gate 0 & Scoring (`python3 tools/gate_and_score.py`)
 - **Gate 0 (Eligibility Gate)**: Verbatim check for ITAR, export control, U.S. Citizenship, Security Clearance, or explicit "no sponsorship". Fails immediately to `VISA RISK (SKIP)` with the quoted snippet.
-- **Fit Scoring (0–100)**: Evaluates aerospace/composites domain, quality toolkit (PFMEA, SPC, 8D, AS9102 FAIR, MRB/NCR, GD&T/CMM), and sponsorship odds.
+- **Fit Scoring (0–100)**: Evaluates domain priority, `master_toolkit` keyword coverage, seniority fit, and sponsorship odds — all from `config/search_profile.json`.
 - **Routing**:
-  - `Track 2: Curated Target` (Joby, AST, Micron, or top aerospace fit $\ge 75$)
+  - `Track 2: Curated Target` (an anchor company, or a top-priority-domain fit $\ge 75$)
   - `Track 1: Broad-Fit Apply` (Score $\ge 50$, strong sponsor)
   - `Drop` (Score $< 50$ or VISA RISK)
 - **Handoff**: `.pipeline/ranked.md` & `.pipeline/ranked.json`.
-- 🧑 **GATE A**: Sid reviews the scored shortlist and approves rows to customize.
+- 🧑 **GATE A**: you reviews the scored shortlist and approves rows to customize.
 
 ### Stage 3: Customize & Verify (`python3 tools/customise_resume.py`)
 - Full Drafter-Reviewer Agent architecture grounded against `data/candidate_resume_database.json`.
@@ -44,7 +44,7 @@ Step 1: FETCH (ATS + Apify) ──▶ Step 2: GATE 0 & SCORE ──▶ 🧑 GATE
 - Appends new URLs to `seen_jobs.csv`.
 - Executes `./refresh.sh --fetch` (MANDATORY: pulls live database state to rebuild `job_tracker.html` and deploy Cowork `index.html`).
 - Exports high-score networking sheet via `python3 networking_sheet.py export --date <today>` if qualifying roles exist.
-- 🧑 **GATE B**: Sid receives the verified PDFs and apply links to submit directly.
+- 🧑 **GATE B**: you receives the verified PDFs and apply links to submit directly.
 
 ---
 
@@ -65,7 +65,7 @@ There is **one** contacts store: the Supabase **`contacts`** table in project `c
 ---
 
 ## Hard Guardrails
-1. **Claude/Antigravity never applies, never logs in, and never sends outreach.** Sid applies to every job.
+1. **Claude/Antigravity never applies, never logs in, and never sends outreach.** you applies to every job.
 2. **Never fabricate experience, metrics, or employers.**
 3. **Always rebuild with `./refresh.sh --fetch`.**
 4. **Never bypass Gate 0 ITAR/Visa screening.**

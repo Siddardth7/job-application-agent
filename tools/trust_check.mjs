@@ -8,7 +8,7 @@
  * enriched with trustScore / trustFlags / trustLevel.
  *
  * Legitimacy is a SEPARATE axis — it NEVER modifies the P1_06 match score or the
- * scoring gate (P1_06 §5). Flags surface in the shortlist so Sid can deprioritize; never auto-drop.
+ * scoring gate (P1_06 §5). Flags surface in the shortlist so you can deprioritize; never auto-drop.
  *
  * Usage:
  *   cat rows.json | node tools/trust_check.mjs            # stdin

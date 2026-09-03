@@ -17,8 +17,8 @@
  * Config: tools/portals.json
  *   { "since_days": 3,
  *     "title_filter": { "positive": ["quality","supplier quality",...], "negative": ["intern"] },
- *     "portals": [ { "name":"Joby Aviation", "provider":"greenhouse",
- *                    "api":"https://boards-api.greenhouse.io/v1/boards/jobyaviation/jobs" }, ... ] }
+ *     "portals": [ { "name":"Example Corp", "provider":"greenhouse",
+ *                    "api":"https://boards-api.greenhouse.io/v1/boards/examplecorp/jobs" }, ... ] }
  *   Workday/Ashby/Lever entries use "careers_url" instead of "api"; the provider derives the endpoint.
  *
  * Usage:
@@ -28,14 +28,18 @@
  *   node tools/ats_scan.mjs --self-test            # offline asserts, exit 0/1
  * Output: JSON array of rows on stdout; per-portal errors go to stderr, never abort the run.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync} from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PROVIDERS_DIR = join(HERE, 'lib', 'providers');
-const DEFAULT_CONFIG = join(HERE, 'portals.json');
+// /setup writes tools/portals.json; the .example file is the pre-setup fallback
+// so a fresh clone runs instead of crashing on a missing config.
+const DEFAULT_CONFIG = existsSync(join(HERE, 'portals.json'))
+  ? join(HERE, 'portals.json')
+  : join(HERE, 'portals.example.json');
 const CONCURRENCY = 5;
 
 /** Map a career-ops Job → our Apify-shaped row. The ATS url IS the apply url (trust-validator loves it). */
@@ -153,9 +157,9 @@ function selfTest() {
   let pass = 0, total = 0;
   const check = (name, cond) => { total++; if (cond) pass++; else console.error(`FAIL: ${name}`); };
 
-  const r = mapJob({ title: 'SQE', url: 'https://boards.greenhouse.io/x/jobs/1', company: 'Joby', location: 'CA', postedAt: 1_700_000_000_000 }, 'greenhouse');
+  const r = mapJob({ title: 'SQE', url: 'https://boards.greenhouse.io/x/jobs/1', company: 'Example Corp', location: 'CA', postedAt: 1_700_000_000_000 }, 'greenhouse');
   check('map: link==applyUrl==url', r.link === r.applyUrl && r.link === 'https://boards.greenhouse.io/x/jobs/1');
-  check('map: companyName from company', r.companyName === 'Joby');
+  check('map: companyName from company', r.companyName === 'Example Corp');
   check('map: postedAt ISO date', r.postedAt === '2023-11-14');
   check('map: source tag', r.source === 'ats:greenhouse');
   const u = mapJob({ title: 'X', url: 'https://a/b', company: 'C', location: '' }, 'lever');

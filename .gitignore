@@ -8,6 +8,9 @@ profile.md
 config/search_profile.json
 company_intel.md
 data/candidate_resume_database.json
+tools/portals.json
+Resume/
+job_tracker.html
 playbook/*.md
 !playbook/*.template.md
 Interview_Prep/
