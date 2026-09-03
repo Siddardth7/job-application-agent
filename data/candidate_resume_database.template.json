@@ -1,0 +1,75 @@
+{
+  "candidate": {
+    "name": "Jane Doe",
+    "contact": {
+      "location": "San Francisco, CA",
+      "phone": "+1 (555) 019-2834",
+      "email": "janedoe@example.com",
+      "linkedin": "https://linkedin.com/in/janedoe",
+      "github": "https://github.com/janedoe",
+      "portfolio": "https://janedoe.github.io"
+    },
+    "work_authorization": "F-1 OPT STEM (No sponsorship required initially, H-1B sponsorship needed thereafter)"
+  },
+  "education": [
+    {
+      "institution": "University of California, Berkeley",
+      "degree": "M.S. Mechanical Engineering",
+      "dates": "Aug 2023 -- May 2025",
+      "coursework": "Finite Element Analysis, Advanced Manufacturing, Control Systems, Quality Engineering"
+    },
+    {
+      "institution": "State University",
+      "degree": "B.S. Mechanical Engineering",
+      "dates": "Aug 2019 -- May 2023",
+      "coursework": "Thermodynamics, Mechanics of Materials, CAD/CAM, Manufacturing Processes"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Six Sigma Green Belt (SSGB)",
+      "issuer": "ASQ / IISE"
+    }
+  ],
+  "experience": [
+    {
+      "company": "Acme Manufacturing",
+      "company_escaped": "Acme Manufacturing",
+      "title": "Manufacturing Quality Engineer Intern",
+      "dates": "May 2024 -- Aug 2024",
+      "certified_metrics": {
+        "scrap_reduction": "14%",
+        "cpk_improvement": "from 1.12 to 1.45"
+      },
+      "bullets": [
+        "Led statistical process control (SPC) implementation across 3 assembly lines, improving Cpk from 1.12 to 1.45 and reducing scrap by 14\\%.",
+        "Developed and updated Process FMEAs (PFMEA) and Control Plans in compliance with ISO 9001 and AS9100 standards.",
+        "Facilitated 8D root cause analysis and corrective action (CAPA) investigations for non-conformances (NCRs), eliminating recurring assembly defects."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "key": "spc_dashboard",
+      "title": "Automated SPC & Quality Dashboard",
+      "tech": "Python, Streamlit, Pandas, SciPy",
+      "url": "https://github.com/example/spc-dashboard",
+      "dates": "Jan 2024 -- Apr 2024",
+      "bullets": [
+        "Built production-grade SPC dashboard implementing Western Electric and Nelson rules for automated out-of-control detection.",
+        "Integrated automated gauge repeatability and reproducibility (Gage R\\&R) calculations and process capability analysis (Cp/Cpk)."
+      ]
+    },
+    {
+      "key": "pfmea_tool",
+      "title": "AIAG-VDA PFMEA & Control Plan Generator",
+      "tech": "Python, SQLite, Streamlit",
+      "url": "https://github.com/example/pfmea-tool",
+      "dates": "Aug 2024 -- Dec 2024",
+      "bullets": [
+        "Architected relational schema mapping process steps, failure modes, effects, and severity/occurrence/detection ratings.",
+        "Automated 1-to-1 traceability from PFMEA high-RPN risks directly to inspection frequencies in production control plans."
+      ]
+    }
+  ]
+}

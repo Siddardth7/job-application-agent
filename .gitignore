@@ -1,0 +1,45 @@
+# Secrets & Environment Variables
+.env
+*.env
+!.env.example
+
+# Generated Resumes & Job Application Output
+Job_Applications_Resumes/
+outputs/
+daily_log/
+daily_run/
+JDs/
+
+# Application Trackers & Ledgers
+seen_jobs.csv
+seen_jobs.csv.bak
+tracker_data.json
+*.artifact.html
+
+# Pipeline Temp Files
+.pipeline/*
+!.pipeline/.gitkeep
+
+# LaTeX Build Artifacts
+*.aux
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# Python & Node
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+node_modules/
+.pytest_cache/
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.claude/settings.local.json
