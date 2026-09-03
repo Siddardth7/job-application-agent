@@ -89,13 +89,34 @@ pip install -r requirements.txt
    - Edit `tools/portals.json` to add or modify target company career portals.
    - Edit `company_intel.md` to add company-specific hiring rules or sponsorship policies.
 
-4. **Environment Configuration (Optional)**:
-   ```bash
-   cp .env.example .env
-   ```
-   Add your optional `APIFY_TOKEN` (for LinkedIn scraping) or `SUPABASE_URL` / `SUPABASE_KEY` (for cloud database tracking). If not configured, the agent runs entirely offline/locally with zero paid APIs!
+4. **Supabase Database & Interactive Artifact Setup (Recommended)**:
+   For cloud tracking across devices and interactive web dashboards, set up a free Supabase database:
+   - Follow the 3-minute guide in [`supabase/README.md`](supabase/README.md).
+   - Execute [`supabase/schema.sql`](supabase/schema.sql) in your Supabase SQL Editor.
+   - Execute [`supabase/seed.sql`](supabase/seed.sql) to add initial sample records.
+   - Configure your `.env`:
+     ```bash
+     cp .env.example .env
+     ```
+     Set `SUPABASE_URL` and `SUPABASE_KEY`.
+   - Run `./refresh.sh --fetch` to test live database connection and build the artifact!
 
 ---
+
+## 🗄️ Supabase Backend & Interactive Tracker Artifact
+
+This framework includes an interactive dual-tab dashboard (`job_tracker.html` and `job_tracker.artifact.html`) backed by Supabase PostgreSQL:
+
+- **Interactive Dashboard**:
+  - **Applications View**: Track application status (`applied`, `interviewing`, `offer`, `rejected`), match scores (0–100), job requisition IDs, direct links, and follow-up deadlines.
+  - **Networking View**: Automated 1-click recruiter and team-lead LinkedIn outreach links, contact personas (`RECRUITER`, `SENIOR_MANAGER`), and touchpoint tracking.
+  - **Metrics Bar**: Visual conversion rates, total pipeline counts, and overdue reminders.
+- **Database Schema**: Full PostgreSQL definitions in [`supabase/schema.sql`](supabase/schema.sql) with custom ENUMs (`app_status_t`, `lane_t`, `outreach_status_t`), automatic `updated_at` triggers, RLS policies, and performance indexes.
+- **Live Sync & Hydration**:
+  - `tools/log_and_refresh.py` automatically POSTs approved roles and recruiter contacts to Supabase.
+  - `./refresh.sh --fetch` pulls live database state via REST and rebuilds the HTML artifact.
+  - In Claude Artifacts or Cowork, the page dynamically hydrates directly from Supabase.
+  - In offline mode, `./refresh.sh` builds the dashboard from local `tracker_data.json`.
 
 ## 🖥️ Running the Pipeline
 
@@ -150,8 +171,15 @@ job-application-agent/
 │   ├── verify_pdf.py         # LaTeX compiler & 1-page ATS PDF validator
 │   ├── log_and_refresh.py    # Tracker updater & contact link generator
 │   └── daily_run.sh          # All-in-one daily runner script
+├── supabase/                 # Supabase PostgreSQL schema, seed, and docs
+│   ├── schema.sql            # Table definitions, ENUMs, triggers, and RLS
+│   ├── seed.sql              # Initial sample data
+│   └── README.md             # Complete Supabase setup guide
+├── job_tracker.html          # Interactive dual-tab UI dashboard
+├── tracker_data.template.json# Sample application and contact data
 ├── networking_sheet.py       # Excel / Supabase networking contact manager
 ├── refresh.py                # Dashboard & tracker artifact builder
+├── refresh.sh                # One-click dashboard rebuilder
 ├── requirements.txt          # Python dependencies
 └── .env.example              # Environment variables template
 ```

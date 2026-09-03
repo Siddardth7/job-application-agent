@@ -64,11 +64,11 @@ def get_apify_usage() -> dict:
 
 def get_supabase_counts() -> dict:
     """Fetch total applications and contacts from Supabase."""
-    url = os.getenv("SUPABASE_URL", "https://chsrkysjongzgdbwqhlu.supabase.co")
-    key = os.getenv("SUPABASE_KEY")
+    url = os.getenv("SUPABASE_URL", "")
+    key = os.getenv("SUPABASE_KEY", "")
     
-    if not key:
-        return {"error": "SUPABASE_KEY not configured"}
+    if not url or not key:
+        return {"error": "SUPABASE_URL or SUPABASE_KEY not configured"}
         
     counts = {}
     headers = {

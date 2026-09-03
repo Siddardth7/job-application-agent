@@ -1,207 +1,10 @@
-#!/usr/bin/env python3
-"""
-refresh.py — regenerate the Job Search Tracker artifact from Supabase.
-
-ONE generator, ONE database. Run this at the end of every daily run (or any time
-the DB changes) and the Cowork artifact updates itself.
-
-Data sources (pick one):
-  A) --data tracker_data.json   (default if the file exists)
-       A JSON file: {"apps":[...], "contacts":[...]}.
-       Claude Code produces it from the Supabase connector, e.g. run these two and
-       merge into tracker_data.json:
-         select json_agg(a) from (select * from applications) a;
-         select json_agg(c) from (select * from contacts) c;
-  B) --fetch                    (standalone, no Claude Code)
-       Pulls both tables over Supabase REST. Set SUPABASE_KEY in the environment
-       (service_role recommended; kept in your local shell / .env, never committed).
-       SUPABASE_URL defaults to this project.
-
-Output:
-  Writes the artifact index.html (auto-deploys in Cowork) AND a local mirror.
-  Override paths with --artifact and --local.
-
-Usage:
-  python refresh.py                      # uses ./tracker_data.json
-  python refresh.py --data path.json
-  python refresh.py --fetch              # needs SUPABASE_KEY env
-"""
-import os, sys, json, argparse, datetime, urllib.request, urllib.parse
-
-HERE = os.path.dirname(os.path.abspath(__file__))
-
-def _load_dotenv():
-    """Load .env next to this file so SUPABASE_KEY is baked into the artifact even
-    when refresh.py is run directly (not via refresh.sh). Existing env vars win."""
-    p = os.path.join(HERE, ".env")
-    if not os.path.exists(p):
-        return
-    for line in open(p, encoding="utf-8"):
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        os.environ.setdefault(k.strip(), v.strip())
-_load_dotenv()
-
-# ONE project: chsrkysjongzgdbwqhlu.
-# SUPABASE_KEY is used HERE (server side, --fetch) to read the tables. It is deliberately
-# NOT baked into the artifact: the sandbox CSP blocks external hosts, so an in-page REST
-# call can never succeed, and a service_role key has no business in a published page.
-# The artifact writes through the viewer's Supabase connector (MCP capability) instead.
-PROJECT_ID = os.environ.get("SUPABASE_PROJECT_ID", "")
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or ""
-SUPA_TOOL = os.environ.get("SUPA_TOOL", "")
-APP_STATUSES = ["referral-pending","pending","applied","dropped","expired","shortlisted","interviewing","offer","rejected"]
-# Mirrors the outreach_status_t enum in lifecycle order
-OUTREACH_STATUSES = ["sourced", "drafted", "sent", "not_accepted", "accepted", "replied", "positive", "meeting_scheduled", "negative", "referral_asked", "referral_secured", "no_response", "dropped"]
-# Default tracker artifact paths
-DEFAULT_ARTIFACT = os.path.join(HERE, "job_tracker.artifact.html")
-DEFAULT_LOCAL = os.path.join(HERE, "job_tracker.html")
-# claude.ai Artifact publishes are wrapped in their own <!doctype><head><body> skeleton,
-# so they take the page CONTENT only. Regenerated on every rebuild so the published
-# artifact never drifts from the Cowork one.
-DEFAULT_FRAGMENT = os.path.join(HERE, "job_tracker.artifact.html")
-
-# ------------------------------------------------------------------ data load
-def load_from_json(path):
-    d = json.load(open(path, encoding="utf-8"))
-    return d["apps"], d["contacts"]
-
-def _rest(table):
-    key = os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    if not key:
-        sys.exit("ERROR: --fetch needs SUPABASE_KEY (service_role recommended) in the environment.")
-    url = f"{SUPABASE_URL}/rest/v1/{table}?select=*"
-    req = urllib.request.Request(url, headers={"apikey": key, "Authorization": f"Bearer {key}"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read().decode())
-
-def load_from_supabase():
-    return _rest("applications"), _rest("contacts")
-
-# ---------------------------------------------------- learning-log connection
-# Drop reviews written in the tracker's Pipeline note field are synced into a
-# managed block in learning_log.md on every rebuild. The log's own preamble says
-# standing lessons are read before every run, so this closes the loop: the agent
-# reads new drop reviews each session and promotes recurring patterns into a
-# standing lesson above the block.
-DROP_START = "<!-- DROP-REVIEWS:START -->"
-DROP_END = "<!-- DROP-REVIEWS:END -->"
-
-def sync_drop_reviews_to_learning_log(apps, path=None):
-    """Rewrite the managed drop-review block in learning_log.md from current data.
-    Returns rows written, or -1 if the file was already up to date."""
-    path = path or os.path.join(HERE, "learning_log.md")
-    rows = [a for a in apps if a.get("status") == "dropped" and (a.get("notes") or "").strip()]
-    rows.sort(key=lambda a: (a.get("found_date") or ""), reverse=True)
-    lines = [DROP_START,
-             "## Dropped-application reviews (auto-synced from the tracker)",
-             "_Candidate's own reason for each drop, pulled from the Pipeline note field in the tracker. "
-             "Read before scoring like any standing lesson; promote recurring patterns into a standing "
-             "lesson above, then the drop can be forgotten. Regenerated by refresh.py every run — edit "
-             "notes in the tracker, not here._",
-             ""]
-    if rows:
-        for a in rows:
-            note = " ".join((a.get("notes") or "").split())
-            lines.append("- **{co} — {role}** (`{jid}`, found {fd}): {note}".format(
-                co=a.get("company", "?"), role=a.get("role", "?"),
-                jid=a.get("job_id", "?"), fd=a.get("found_date") or "—", note=note))
-    else:
-        lines.append("_No dropped-application reviews yet._")
-    lines.append(DROP_END)
-    block = "\n".join(lines)
-    try:
-        cur = open(path, encoding="utf-8").read()
-    except FileNotFoundError:
-        cur = ""
-    if DROP_START in cur and DROP_END in cur:
-        new = cur[:cur.index(DROP_START)] + block + cur[cur.index(DROP_END) + len(DROP_END):]
-    else:
-        new = (cur.rstrip() + "\n\n" + block + "\n") if cur.strip() else block + "\n"
-    if new != cur:
-        open(path, "w", encoding="utf-8").write(new)
-        return len(rows)
-    return -1
-
-def _selftest():
-    import tempfile
-    p = os.path.join(tempfile.mkdtemp(), "ll.md")
-    open(p, "w").write("# Log\n\nexisting standing lesson\n")
-    apps = [{"status": "dropped", "notes": "no sponsorship in JD", "job_id": "j1",
-             "company": "Acme", "role": "QE", "found_date": "2026-07-20"},
-            {"status": "applied", "notes": "keep", "job_id": "j2",
-             "company": "B", "role": "R", "found_date": "2026-07-19"}]
-    assert sync_drop_reviews_to_learning_log(apps, p) == 1
-    t = open(p).read()
-    assert "existing standing lesson" in t and "Acme" in t and "j2" not in t, t
-    assert sync_drop_reviews_to_learning_log(apps, p) == -1              # idempotent
-    apps[0]["notes"] = "ITAR / US-person only"
-    assert sync_drop_reviews_to_learning_log(apps, p) == 1               # change detected
-    t = open(p).read()
-    assert t.count(DROP_START) == 1 and "ITAR" in t and "no sponsorship" not in t, t
-    print("selftest OK")
-
-# ------------------------------------------------------------------ template
-def to_fragment(html):
-    """Strip the document wrapper for a claude.ai Artifact publish: <style> + body markup.
-    The <title> is dropped on purpose — the Artifact tool's `title` parameter names it,
-    and a <title> parsed inside <body> is not valid markup."""
-    style = html[html.index("<style>"):html.index("</style>") + len("</style>")]
-    body = html[html.index("<body>") + len("<body>"):html.rindex("</body>")]
-    return style + "\n" + body
-
-
-def build_html(apps, contacts):
-    today = datetime.date.today().isoformat()
-    return (TEMPLATE
-        .replace("__CSS__", CSS)
-        .replace("__TODAY__", today)
-        .replace("__PROJECT_ID__", PROJECT_ID)
-        .replace("__SUPA_TOOL__", SUPA_TOOL)
-        .replace("__APPS__", json.dumps(apps))
-        .replace("__CONTACTS__", json.dumps(contacts))
-        .replace("__APP_STATUSES__", json.dumps(APP_STATUSES))
-        .replace("__OUTREACH_STATUSES__", json.dumps(OUTREACH_STATUSES)))
-
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--data", default=os.path.join(HERE, "tracker_data.json"))
-    ap.add_argument("--fetch", action="store_true")
-    ap.add_argument("--artifact", default=DEFAULT_ARTIFACT)
-    ap.add_argument("--local", default=DEFAULT_LOCAL)
-    ap.add_argument("--fragment", default=DEFAULT_FRAGMENT)
-    ap.add_argument("--selftest", action="store_true", help="run the drop-review sync self-check and exit")
-    a = ap.parse_args()
-    if a.selftest:
-        _selftest(); return
-    if a.fetch:
-        apps, contacts = load_from_supabase()
-        src = "Supabase REST"
-    else:
-        if not os.path.exists(a.data):
-            sys.exit(f"No data file at {a.data}. Use --fetch, or produce tracker_data.json from the connector.")
-        apps, contacts = load_from_json(a.data)
-        src = a.data
-    n = sync_drop_reviews_to_learning_log(apps)
-    if n >= 0: print(f"  synced {n} drop review(s) into learning_log.md")
-    html = build_html(apps, contacts)
-    wrote = []
-    for p in [a.artifact, a.local, a.fragment]:
-        if not p: continue
-        try:
-            os.makedirs(os.path.dirname(p), exist_ok=True)
-            open(p, "w", encoding="utf-8").write(to_fragment(html) if p == a.fragment else html)
-            wrote.append(p)
-        except Exception as e:
-            print(f"  ! could not write {p}: {e}")
-    print(f"Rendered {len(apps)} applications + {len(contacts)} contacts from {src}.")
-    for p in wrote: print(f"  wrote {p}")
-
-# ================================================================== UI (CSS)
-CSS = r"""
+<!DOCTYPE html>
+<script type="application/json" id="cowork-artifact-meta">
+{"name":"Job Search Tracker","schemaVersion":1,"description":"Supabase-backed Fortify Sprint command center — dual-track, direct-apply-first (Track 1 Broad-Fit · Track 2 Curated Target). Dashboard, Pipeline (dates drill-down, list+detail), Tracker (Job Applications | Networking tables), Follow-ups (contact nudge queue). Status/outreach/flip edits write live to the linkedin-memory DB via the Supabase connector; regenerated by refresh.py after each daily run."}
+</script>
+<html lang="en"><head><meta charset="UTF-8"><title>Job Search Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
 :root{
   color-scheme: light;
   --bg:#eef1ec; --panel:#ffffff; --panel-2:#f4f6f8;
@@ -393,23 +196,14 @@ select.stageselect{font-size:13px;font-weight:800;padding:6px 10px;border:2px so
 .tellclaude{color:var(--muted);font-size:12.5px;margin-top:6px;font-weight:500}
 .tellclaude code{background:var(--panel-2);padding:1px 6px;border-radius:5px;font-family:var(--mono);font-size:11.5px}
 footer{margin-top:26px;font-size:12px;color:var(--faint);text-align:center;font-weight:600}
-"""
-
-# ================================================================== UI (HTML+JS)
-TEMPLATE = r"""<!DOCTYPE html>
-<script type="application/json" id="cowork-artifact-meta">
-{"name":"Job Search Tracker","schemaVersion":1,"description":"Supabase-backed Fortify Sprint command center — dual-track, direct-apply-first (Track 1 Broad-Fit · Track 2 Curated Target). Dashboard, Pipeline (dates drill-down, list+detail), Tracker (Job Applications | Networking tables), Follow-ups (contact nudge queue). Status/outreach/flip edits write live to the linkedin-memory DB via the Supabase connector; regenerated by refresh.py after each daily run."}
-</script>
-<html lang="en"><head><meta charset="UTF-8"><title>Job Search Tracker</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>__CSS__</style></head><body>
+</style></head><body>
 <header>
   <div class="htop">
     <div>
       <div class="brand">Job Search Tracker <small>Fortify Sprint · Dual-Track Command Center · Quality / Process Engineer</small></div>
       <div class="badges"><span class="gatepill">gate: &ge;80 referral · 45&ndash;79 direct-apply</span><span class="livepill off" id="livepill"><span class="dot"></span><span id="livetxt">snapshot</span></span></div>
     </div>
-    <div class="clock">snapshot <b id="today-date">__TODAY__</b><span style="font-size:11px;color:var(--faint)">Supabase · linkedin-memory</span></div>
+    <div class="clock">snapshot <b id="today-date">2026-09-02</b><span style="font-size:11px;color:var(--faint)">Supabase · linkedin-memory</span></div>
   </div>
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" aria-selected="true"  data-tab="dashboard">Dashboard</button>
@@ -463,14 +257,14 @@ TEMPLATE = r"""<!DOCTYPE html>
   <div class="tellclaude">Edits are being staged instead of saved. Copy the SQL to run by hand, or fix the connection called out in the banner above.</div>
 </div></div>
 <script>
-const TODAY="__TODAY__", PROJECT_ID="__PROJECT_ID__", SUPA_TOOL="__SUPA_TOOL__";
+const TODAY="2026-09-02", PROJECT_ID="", SUPA_TOOL="";
 // The baked snapshot: what refresh.py rendered. The page re-reads the database at load
 // (hydrate(), below) and replaces these, so a missed republish only means the FIRST paint
 // is stale — never the data you end up looking at. If the live read fails for any reason,
 // the snapshot is what you keep, which is exactly the old behaviour.
-let APPS=__APPS__, CONTACTS=__CONTACTS__;
-let SNAPSHOT_DATE="__TODAY__", HYDRATED=false;
-const APP_STATUSES=__APP_STATUSES__, OUTREACH_STATUSES=__OUTREACH_STATUSES__;
+let APPS=[{"job_id": "ja-0901-01", "company": "Acme Aerospace", "role": "Manufacturing Quality Engineer", "location": "San Jose, CA", "lane": "direct-apply", "score": 92, "track": "T1", "resume": "resume_AcmeAerospace_MfgQualityEngineer", "job_url": "https://example.com/jobs/acme-qe-1", "found_date": "2026-09-01", "fed_date": "2026-09-01", "referral_state": "none", "status": "applied", "applied_date": "2026-09-01", "follow_up_by": "2026-09-08", "top_contact": "Jane Recruiter (Technical Recruiter)", "legit_flags": null, "notes": "Direct applied with tailored 1-page resume.", "created_at": "2026-09-01T12:00:00+00:00", "updated_at": "2026-09-01T12:00:00+00:00"}, {"job_id": "ja-0901-02", "company": "Orbit Composites", "role": "Process Engineer", "location": "Austin, TX", "lane": "direct-apply", "score": 85, "track": "T2", "resume": "resume_OrbitComposites_ProcessEngineer", "job_url": "https://example.com/jobs/orbit-pe-2", "found_date": "2026-09-01", "fed_date": "2026-09-01", "referral_state": "none", "status": "shortlisted", "applied_date": null, "follow_up_by": "2026-09-05", "top_contact": "John Manager (Manufacturing Engineering Lead)", "legit_flags": null, "notes": "Approved at Gate A review.", "created_at": "2026-09-01T12:00:00+00:00", "updated_at": "2026-09-01T12:00:00+00:00"}], CONTACTS=[{"id": 1, "name": "Jane Recruiter", "title": "Senior Technical Recruiter", "company": "Acme Aerospace", "application_id": "ja-0901-01", "persona": "RECRUITER", "focus_area": "Engineering & Operations", "hook_signal": "Hiring lead for manufacturing quality team", "channel": "linkedin", "linkedin_url": "https://linkedin.com/in/example-recruiter", "email": "janerecruiter@example.com", "is_alum": false, "outreach_status": "sent", "last_touch": "2026-09-01", "next_action": "Follow up if no reply within 7 days", "notes": "1-click outreach generated from pipeline.", "created_at": "2026-09-01T12:00:00+00:00", "updated_at": "2026-09-01T12:00:00+00:00"}, {"id": 2, "name": "John Manager", "title": "Manufacturing Engineering Lead", "company": "Orbit Composites", "application_id": "ja-0901-02", "persona": "SENIOR_MANAGER", "focus_area": "Process Engineering & Composites", "hook_signal": "Team lead for composite manufacturing line", "channel": "linkedin", "linkedin_url": "https://linkedin.com/in/example-manager", "email": null, "is_alum": false, "outreach_status": "sourced", "last_touch": null, "next_action": "Send connection note referencing composite tooling project", "notes": "Found via 1-click team lead search.", "created_at": "2026-09-01T12:00:00+00:00", "updated_at": "2026-09-01T12:00:00+00:00"}];
+let SNAPSHOT_DATE="2026-09-02", HYDRATED=false;
+const APP_STATUSES=["referral-pending", "pending", "applied", "dropped", "expired", "shortlisted", "interviewing", "offer", "rejected"], OUTREACH_STATUSES=["sourced", "drafted", "sent", "not_accepted", "accepted", "replied", "positive", "meeting_scheduled", "negative", "referral_asked", "referral_secured", "no_response", "dropped"];
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>(s==null?"":String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let appById=Object.fromEntries(APPS.map(a=>[a.job_id,a]));
@@ -1046,7 +840,3 @@ initChrome();renderKPIs();renderDist();renderRecent();renderPipeDates();renderAp
   // lighter count probe only when it did not run or did not succeed.
   if(!await hydrate())await verifyLive();})();
 </script></body></html>
-"""
-
-if __name__ == "__main__":
-    main()

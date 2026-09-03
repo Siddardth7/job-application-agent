@@ -1,0 +1,144 @@
+# 🗄️ Supabase Backend & Interactive Artifact Setup
+
+This directory contains the database schema, seed data, and instructions for setting up the Supabase PostgreSQL backend that powers the Job Search Cockpit and interactive tracker artifact.
+
+---
+
+## 🌟 Why Supabase?
+
+The Job Application Agent uses Supabase as a centralized cloud database of record. It enables:
+1. **Multi-Device Sync**: Track applications from your laptop, mobile, or AI coding assistant (Google Antigravity, Claude Code, OpenAI Codex).
+2. **Deterministic Logging**: Stage 4 (`tools/log_and_refresh.py`) auto-persists approved job applications and generates 1-click recruiter/manager LinkedIn links.
+3. **Interactive Artifact Hydration**: The generated HTML dashboard (`job_tracker.html`) dynamically reads the latest live database state or falls back cleanly to offline snapshots.
+4. **Zero-API Cost**: Works completely on Supabase's generous free tier.
+
+---
+
+## 🚀 Setup Guide (Takes ~3 minutes)
+
+### Step 1: Create a Free Supabase Project
+1. Go to [supabase.com](https://supabase.com) and create a free account (or log in).
+2. Click **"New project"**.
+3. Choose a name (e.g., `job-search-tracker`), a database password, and select your nearest region.
+4. Wait ~1 minute for Supabase to provision your PostgreSQL database.
+
+### Step 2: Run the Schema Migration
+1. In your Supabase project dashboard, navigate to the **SQL Editor** tab (icon `>_` on the left sidebar).
+2. Click **"New query"**.
+3. Copy the entire contents of [`schema.sql`](./schema.sql) and paste it into the editor.
+4. Click **"Run"** (or press `Ctrl+Enter` / `Cmd+Enter`).
+   - This creates all necessary enums (`lane_t`, `app_status_t`, `outreach_status_t`), the `applications` table, the `contacts` table, triggers, indexes, and Row Level Security (RLS) policies.
+
+### Step 3: Run Optional Seed Data
+1. In the SQL Editor, open another query tab.
+2. Copy and paste the contents of [`seed.sql`](./seed.sql).
+3. Click **"Run"**.
+   - This inserts a couple of sample applications and networking contacts so you can immediately see the dashboard rendered with data.
+
+### Step 4: Configure Project Environment Variables
+1. In Supabase, go to **Project Settings** (gear icon) -> **API**.
+2. Copy:
+   - **Project URL** (e.g., `https://abcdefghijklm.supabase.co`)
+   - **anon / public key** or **service_role key** (under Project API keys)
+3. In your local repository root, create or edit your `.env` file:
+   ```bash
+   cp .env.example .env
+   ```
+4. Set the keys in `.env`:
+   ```env
+   SUPABASE_URL=https://your-project-ref.supabase.co
+   SUPABASE_KEY=your-service-role-or-anon-key
+   ```
+
+---
+
+## 📊 Data Schema Reference
+
+### `applications` Table
+Primary ledger for all jobs tracked by the agent:
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `job_id` | `text` (PK) | Unique ID in format `ja-MMDD-NN` (e.g. `ja-0901-01`) |
+| `company` | `text` | Employer name |
+| `role` | `text` | Position title |
+| `location` | `text` | Job location |
+| `lane` | `lane_t` | `direct-apply`, `referral`, `staffing`, or `outreach` |
+| `score` | `int` | 0–100 match score from `gate_and_score.py` |
+| `track` | `track_t` | Target track (`T1`, `T2`, `T3`) |
+| `resume` | `text` | Filename of the tailored PDF resume |
+| `job_url` | `text` | Direct application URL |
+| `req_id` | `text` | Employer job requisition number |
+| `status` | `app_status_t`| `pending`, `applied`, `shortlisted`, `interviewing`, `offer`, `rejected`, `dropped` |
+| `applied_date`| `date` | Date the application was submitted |
+| `follow_up_by`| `date` | Target date to follow up on the application |
+| `top_contact` | `text` | Highlighted key contact summary |
+| `legit_flags` | `text` | Caution flags from legitimacy checks |
+| `notes` | `text` | Running notes, referral leads, or interview details |
+
+### `contacts` Table
+Stores all hiring managers, recruiters, and alumni contacts:
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `id` | `bigserial` (PK)| Auto-incrementing contact ID |
+| `name` | `text` | Contact's full name |
+| `title` | `text` | Job title (e.g. "Senior Technical Recruiter") |
+| `company` | `text` | Associated company |
+| `application_id` | `text` (FK) | References `applications(job_id)` |
+| `persona` | `text` | `RECRUITER`, `SENIOR_MANAGER`, `PEER`, etc. |
+| `hook_signal` | `text` | Connection angle / conversation starter |
+| `channel` | `contact_channel_t`| `linkedin`, `inmail`, `email` |
+| `linkedin_url`| `text` | LinkedIn profile or 1-click search URL |
+| `email` | `text` | Email address (if known) |
+| `is_alum` | `boolean` | Alumnus indicator |
+| `outreach_status` | `outreach_status_t` | `sourced`, `drafted`, `sent`, `replied`, `meeting_scheduled`, etc. |
+| `last_touch` | `date` | Date of last interaction |
+| `next_action`| `text` | Recommended next outreach step |
+
+---
+
+## 🔄 How the Pipeline Interacts with Supabase
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ tools/fetch_jobs.py -> tools/gate_and_score.py              │
+│ (Discovers postings and generates 1-click LinkedIn searches)│
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ tools/log_and_refresh.py (Stage 4)                          │
+│ 1. POSTs approved records to Supabase `applications`        │
+│ 2. POSTs generated recruiter & manager links to `contacts`  │
+│ 3. Executes ./refresh.sh --fetch to rebuild the UI tracker  │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ refresh.py / refresh.sh                                     │
+│ 1. GETs latest records from Supabase REST API               │
+│ 2. Compiles self-contained `job_tracker.html` dashboard     │
+│ 3. Deploys live view for browser or Claude Artifacts       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Rebuilding the Tracker Dashboard:
+```bash
+# Pull live records from Supabase and regenerate the HTML artifact:
+./refresh.sh --fetch
+
+# Or build from local tracker_data.json offline:
+./refresh.sh
+```
+
+---
+
+## 🎨 The Interactive Artifact Dashboard (`job_tracker.html`)
+
+The compiled tracker in `job_tracker.html` provides:
+- **Metrics Bar**: Total applications, pipeline conversion rates, interview counts, and pending follow-ups.
+- **Dual Views**:
+  - **Applications Tab**: Filter by status, track, search by title/company, view scores and direct links.
+  - **Networking Tab**: 1-click reach-out links, persona badges, and outreach stages.
+- **Offline + Live Mode**: Opens as a standalone HTML file in any browser, or in Claude as an interactive Artifact that can query Supabase directly via MCP!
