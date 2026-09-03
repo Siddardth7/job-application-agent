@@ -29,7 +29,7 @@ available, but no Apify spend, no networking sends, no DB writes beyond what a s
    Step 9 shape: Part A jobs (fetch counts + spend, gate table, scored shortlist), Part B referral
    output (contacts + drafted notes + status), Part C direct-apply output (tailored resume paths +
    3-line summaries + apply links). Then update the live-state stores by **append/update, never
-   rewrite**: `seen_jobs.csv` statuses, `Lane2_Tracker.md` rows (referral + direct-apply). `.pipeline/`
+   rewrite**: `seen_jobs.csv` statuses, tracker rows in Supabase / `tracker_data.json`. `.pipeline/`
    is scratch; `daily_run/<today>.md` is the record.
 6. **Feed the artifact (DAILY_RUN Step 10 — mandatory, not optional, skip only on `dry-run`).**
    INSERT today's applications + contacts into Supabase (project `chsrkysjongzgdbwqhlu`, per

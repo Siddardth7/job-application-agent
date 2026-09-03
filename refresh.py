@@ -476,8 +476,12 @@ const esc=s=>(s==null?"":String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;
 let appById=Object.fromEntries(APPS.map(a=>[a.job_id,a]));
 const contactsFor=id=>CONTACTS.filter(c=>c.application_id===id&&c.outreach_status!=='dropped');
 function rebind(){appById=Object.fromEntries(APPS.map(a=>[a.job_id,a]));}
-const isOverdue=a=>a.lane==='referral'&&a.status==='referral-pending'&&a.follow_up_by&&a.follow_up_by<TODAY;
-const isDue=a=>a.lane==='referral'&&a.status==='referral-pending'&&a.follow_up_by===TODAY;
+// Follow-up tracking is lane-agnostic. Gating these on a single lane hides every
+// overdue row outside it — which is how 25 live overdue follow-ups read as zero.
+const OPEN_ST=new Set(['pending','applied','shortlisted','interviewing','referral-pending']);
+const isOpen=a=>OPEN_ST.has(a.status);
+const isOverdue=a=>isOpen(a)&&a.follow_up_by&&a.follow_up_by<TODAY;
+const isDue=a=>isOpen(a)&&a.follow_up_by===TODAY;
 const scoreClass=s=>s==null?'lo':(s>=80?'hi':(s>=60?'mid':'lo'));
 // Transport priority: claude.ai MCP capability > legacy Cowork connector > offline tray.
 // MCP resolves asynchronously, so initChrome() runs again once boot() knows.

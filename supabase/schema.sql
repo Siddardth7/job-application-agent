@@ -9,17 +9,19 @@
 --------------------------------------------------------------------------------
 do $$ begin
   if not exists (select 1 from pg_type where typname = 'lane_t') then
+    -- 'referral' is legacy: that lane was retired 2026-08-13. Kept so historical rows
+    -- still load; new rows use 'direct-apply', 'staffing', or 'outreach'.
     create type lane_t as enum ('referral', 'direct-apply', 'staffing', 'outreach');
   end if;
   if not exists (select 1 from pg_type where typname = 'referral_state_t') then
     create type referral_state_t as enum ('searching', 'reached', 'conversation', 'referral_asked', 'referred', 'direct-apply', 'none');
   end if;
   if not exists (select 1 from pg_type where typname = 'app_status_t') then
+    -- 'referral-pending' is legacy (retired referral lane); kept for historical rows.
     create type app_status_t as enum ('referral-pending', 'pending', 'applied', 'dropped', 'expired', 'shortlisted', 'interviewing', 'offer', 'rejected');
   end if;
-  if not exists (select 1 from pg_type where typname = 'track_t') then
-    create type track_t as enum ('T1', 'T2', 'T3');
-  end if;
+  -- NOTE: `track` is deliberately NOT an enum. Track labels are yours to define in
+  -- config/search_profile.json; a fixed enum would force one taxonomy on every user.
   if not exists (select 1 from pg_type where typname = 'contact_channel_t') then
     create type contact_channel_t as enum ('linkedin', 'inmail', 'email');
   end if;
@@ -41,7 +43,7 @@ create table if not exists applications (
   location        text,
   lane            lane_t not null default 'direct-apply',
   score           int,                               -- 0-100 fit score from ranker
-  track           track_t,                           -- T1 / T2 / T3 track classification
+  track           text,                              -- your track label, free text (see config/search_profile.json)
   resume          text,                              -- Generated resume file name
   job_url         text,                              -- Link to the original posting
   req_id          text,                              -- Job requisition ID from employer

@@ -55,7 +55,7 @@ this file lists ranked/linked contacts only, ready for Sid to request drafts on 
 ## NEVER
 - **NEVER send a LinkedIn message, InMail, connection request, or email; never log in.** You draft; Sid sends.
 - Never re-score, re-tailor a resume, or apply to a job.
-- Never edit `~/.networking-agent/state.db`, `Lane2_Tracker.md`, or any live-state store directly
+- Never edit `~/.networking-agent/state.db`, `tracker_data.json`, or any live-state store directly
   (the runner and the orchestrator own those writes).
 
 ## OPEN QUESTIONS → STOP

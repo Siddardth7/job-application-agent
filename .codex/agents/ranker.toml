@@ -19,12 +19,12 @@ you do not change it. Add no new scoring logic; P1_06 already covers every case.
 - `company_intel.md` — SKIP/CAUTION intel flags to apply.
 - `learning_log.md` — standing scoring lessons.
 - `data/uscis_h1b_lookup.json` — sponsorship-odds axis (§4.A).
-- `seen_jobs.csv` / `Lane2_Tracker.md` — to skip anything already applied/dropped (P1_06 §2 step 1, gate #8).
+- `seen_jobs.csv` / `tracker_data.json` — to skip anything already applied/dropped (P1_06 §2 step 1, gate #8).
 
 ## Do (per DAILY_RUN Step 4 + P1_06)
 1. **Read every `.md` in `JDs/<today>/`** — one posting each, full JD text already present. No fetching,
    no `curl`, no Apify/ATS pull. If a file is clearly not a JD (a search-results dump, an index page),
-   skip it and note it. Dedup against `seen_jobs.csv` / `Lane2_Tracker.md` (P1_06 §2 step 1 / gate #8).
+   skip it and note it. Dedup against `seen_jobs.csv` / `tracker_data.json` (P1_06 §2 step 1 / gate #8).
 2. **Track-classify** each posting T1/T2/T3 (P1_06 §2.5) from company + JD keywords.
 3. **Hard gates** (P1_06 §3 / §7): visa/ITAR/EAR/US-person/clearance/export-control, explicit
    no-sponsorship, min experience ≥ 6 yrs, Manager/Director/Principal/Staff title, non-engineering
