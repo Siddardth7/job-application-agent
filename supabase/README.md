@@ -63,9 +63,9 @@ Primary ledger for all jobs tracked by the agent:
 | `company` | `text` | Employer name |
 | `role` | `text` | Position title |
 | `location` | `text` | Job location |
-| `lane` | `lane_t` | `direct-apply`, `referral`, `staffing`, or `outreach` |
+| `lane` | `lane_t` | `direct-apply`, `staffing`, or `outreach` (`referral` is legacy, retired 2026-08-13) |
 | `score` | `int` | 0–100 match score from `gate_and_score.py` |
-| `track` | `track_t` | Target track (`T1`, `T2`, `T3`) |
+| `track` | `text` | Your track label — free text, defined in `config/search_profile.json` |
 | `resume` | `text` | Filename of the tailored PDF resume |
 | `job_url` | `text` | Direct application URL |
 | `req_id` | `text` | Employer job requisition number |
