@@ -36,7 +36,10 @@ DB_PATH = ROOT_DIR / "data" / "candidate_resume_database.json"
 
 def load_candidate_database() -> dict:
     if not DB_PATH.exists():
-        raise FileNotFoundError(f"Resume database not found at {DB_PATH}")
+        raise FileNotFoundError(
+            f"Resume database not found at {DB_PATH}. Run /setup to build it from your "
+            f"documents, or copy data/candidate_resume_database.template.json and fill it in."
+        )
     with open(DB_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 

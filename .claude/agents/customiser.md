@@ -19,8 +19,8 @@ exactly. You add no new resume logic.
 - `.pipeline/ranked.md` — your input: each row's score, `Resume` (track base), and `JD file` path.
 - `playbook/P1_03_resume_customization_rules.md` — the tailoring rules (truth-only, one page, keyword
   mirroring, LaTeX-preserving, no em dashes, no buzzwords, the naming + 3-line-summary contract).
-- The row's base `.tex` in `Resume/Final_Resumes/` — `Track1_Semiconductor_QE.tex` /
-  `Track2_Aerospace.tex` / `Track3_Quality_Systems.tex`.
+- The master `.tex` at `Resume/Final_Resumes/Resume_NewStrategy_Master.tex` — one template for
+  every track. The track label only steers emphasis and section ordering, not which file you open.
 - **The row's JD file** (`JDs/<today>/…md`, path is in the `JD file` column) — read the ACTUAL JD so
   the skills you surface and keywords you mirror come from this posting, not a guess.
 

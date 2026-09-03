@@ -48,58 +48,42 @@ flowchart LR
 
 ---
 
-## ⚡ Quickstart Guide
-
-### 1. Prerequisites
-- **Python 3.10+**: Core engine scripts.
-- **Node.js 18+**: For ATS board scanners.
-- **TeX Live / MacTeX**: For compiling LaTeX resumes to PDF (`pdflatex` must be in your `PATH`).
-  - macOS: `brew install --cask mactex-no-gui` or `brew install basictex`
-  - Ubuntu/Debian: `sudo apt install texlive-latex-base texlive-latex-extra texlive-fonts-recommended`
-  - Windows: Install [MiKTeX](https://miktex.org/) or TeX Live.
-
-### 2. Installation
-Clone the repository and install the lightweight Python dependencies:
+## ⚡ Quickstart
 
 ```bash
-git clone https://github.com/Siddardth7/job-application-agent.git
-cd job-application-agent
+git clone https://github.com/Siddardth7/job-application-agent.git my-job-search
+cd my-job-search
+rm -rf .git && git init          # start your own private history
 
-# Create and activate a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Configure Your Profile & Resume
+Then drop your resume and LinkedIn export into `documents/` and run, in Claude Code:
 
-1. **Candidate Master Data**:
-   Copy and edit `data/candidate_resume_database.template.json` to `data/candidate_resume_database.json`:
-   ```bash
-   cp data/candidate_resume_database.template.json data/candidate_resume_database.json
-   ```
-   Fill in your actual work experience, verified metrics, projects, education, and contact details.
+```
+/setup
+```
 
-2. **Master LaTeX Resume**:
-   Edit `Resume/Final_Resumes/Resume_NewStrategy_Master.tex` with your baseline resume structure. The customizer will use this as the master template.
+`/setup` reads your documents (or interviews you), and writes your search profile, scoring
+rubric, resume truth-source, and master LaTeX template. **Everything it writes is
+gitignored.** Full instructions, prerequisites, and troubleshooting: **[SETUP.md](SETUP.md)**.
 
-3. **Target Portals & Gating (Optional)**:
-   - Edit `tools/portals.json` to add or modify target company career portals.
-   - Edit `company_intel.md` to add company-specific hiring rules or sponsorship policies.
+> **Until `/setup` runs**, the pipeline falls back to `config/search_profile.example.json` —
+> the template author's targets and keywords. It runs, but it scores every posting against
+> the wrong candidate. Run setup first.
 
-4. **Supabase Database & Interactive Artifact Setup (Recommended)**:
-   For cloud tracking across devices and interactive web dashboards, set up a free Supabase database:
-   - Follow the 3-minute guide in [`supabase/README.md`](supabase/README.md).
-   - Execute [`supabase/schema.sql`](supabase/schema.sql) in your Supabase SQL Editor.
-   - Execute [`supabase/seed.sql`](supabase/seed.sql) to add initial sample records.
-   - Configure your `.env`:
-     ```bash
-     cp .env.example .env
-     ```
-     Set `SUPABASE_URL` and `SUPABASE_KEY`.
-   - Run `./refresh.sh --fetch` to test live database connection and build the artifact!
+### Making it yours
+
+Everything profile-specific lives in `config/search_profile.json`: the titles you search
+for, the keywords that earn skill-fit points, your priority domains and anchor companies,
+the geographies you block, and which eligibility gates apply to you. `/setup` writes it;
+edit it by hand any time, or re-run `/setup --section search`.
+
+The single highest-leverage answer in setup is **work authorization**. If you need
+sponsorship, the visa gates and the 30-point sponsorship axis stay on. If you're a citizen
+or permanent resident, they come off and those points redistribute — leaving them on would
+silently discard most of your real market.
 
 ---
 
@@ -138,11 +122,14 @@ This framework includes an interactive dual-tab dashboard (`job_tracker.html` an
 This repository includes native sub-agent definitions:
 - **Google Antigravity**: Configured via `AGENTS.md` and workspace rules.
 - **Claude Code**: Run commands directly in Claude Code:
+  - `/setup`: One-time onboarding — builds your profile from your documents.
   - `/apply-run`: Orchestrates the entire daily pipeline.
   - `/fetch`: Runs Stage 1 discovery.
   - `/rank`: Runs Stage 2 scoring.
   - `/customise`: Runs Stage 3 resume generation.
   - `/find-contacts`: Discovers networking targets.
+  - `/interview`: Builds a full interview prep manual for a tracked role.
+  - `/reset`: Clears personal data back to templates.
 - **OpenAI Codex**: Configured via `.codex/agents/*.toml`.
 
 ---
@@ -152,6 +139,11 @@ This repository includes native sub-agent definitions:
 ```
 job-application-agent/
 ├── .claude/                  # Claude Code subagents & slash commands
+├── SETUP.md                  # Full setup + troubleshooting guide
+├── config/
+│   └── search_profile.example.json  # Search/scoring config — /setup writes your own
+├── documents/                # Drop your resume & LinkedIn export here for /setup
+├── playbook/                 # Scoring rubric & customization rule templates
 ├── .codex/                   # OpenAI Codex agent configurations
 ├── AGENTS.md                 # Orchestration rules & Antigravity configuration
 ├── DAILY_RUN.md              # Operational SOP handbook
@@ -159,6 +151,7 @@ job-application-agent/
 │   ├── candidate_resume_database.template.json  # Master profile schema
 │   ├── candidate_resume_database.json           # Your active candidate inventory
 │   └── uscis_h1b_lookup.json                    # H-1B sponsor database (Gate 0)
+├── profile.template.md       # Becomes your profile.md at setup
 ├── Resume/
 │   └── Final_Resumes/
 │       └── Resume_NewStrategy_Master.tex        # Master LaTeX template

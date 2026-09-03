@@ -3,6 +3,15 @@
 *.env
 !.env.example
 
+# Personal profile & config written by /setup (NEVER commit these)
+profile.md
+config/search_profile.json
+company_intel.md
+data/candidate_resume_database.json
+playbook/*.md
+!playbook/*.template.md
+Interview_Prep/
+
 # Generated Resumes & Job Application Output
 Job_Applications_Resumes/
 outputs/

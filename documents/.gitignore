@@ -1,0 +1,7 @@
+# Everything you drop here is personal. Nothing in this folder is ever committed
+# except the scaffolding itself.
+*
+!.gitignore
+!README.md
+!*/
+!*/.gitkeep

@@ -47,7 +47,7 @@ you do not change it. Add no new scoring logic; P1_06 already covers every case.
 `.pipeline/ranked.md` — the ordered shortlist as a table with P1_06 §10 columns
 (Company, Title, Location, Posted, Source [`hand-picked`], **Track**, Spon/30, Skills/30, Sen/20, Dom/10,
 Log/10, **TOTAL/100**, Verdict [Apply / Drop], Visa, **Networking** [recommended if ≥60, else no],
-**Resume** [Track1_Semiconductor_QE / Track2_Aerospace / Track3_Quality_Systems], Confidence, Why,
+**Track** [T1 / T2 / T3], Confidence, Why,
 **JD file** [the `JDs/<today>/…md` path]). Include the gate table (gated rows + reasons) and per-track
 counts. Order highest score first. If nothing survives, say so explicitly (a zero-Apply day is valid).
 

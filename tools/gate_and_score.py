@@ -27,6 +27,11 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 PIPELINE_DIR = ROOT_DIR / ".pipeline"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.profile_config import load_config  # noqa: E402
+
+CONFIG = load_config()
+
 USCIS_LOOKUP_FILE = ROOT_DIR / "data" / "uscis_h1b_lookup.json"
 COMPANY_INTEL_FILE = ROOT_DIR / "company_intel.md"
 SEEN_JOBS_CSV = ROOT_DIR / "seen_jobs.csv"
@@ -41,48 +46,15 @@ VISA_ITAR_PATTERNS = [
 ]
 
 # Explicit Company-level intel skips (company_intel.md)
-KNOWN_NON_SPONSORS = {
-    "general motors": "GM company-wide policy: no OPT/H-1B sponsorship",
-    "caterpillar": "Caterpillar policy: no visa sponsorship for technical roles",
-    "lockheed martin": "Defense prime: US Citizenship required",
-    "northrop grumman": "Defense prime: US Citizenship required",
-    "rtx": "Defense prime: ITAR / US Person required",
-    "raytheon": "Defense prime: ITAR / US Person required",
-    "general dynamics": "Defense prime: US Citizenship required",
-    "boeing defense": "Defense division: US Citizenship / Clearance required",
-    "relativity space": "Launch vehicle rocket manufacturer: ITAR / US Person required",
-    "relativity": "Launch vehicle rocket manufacturer: ITAR / US Person required",
-    "robert bosch": "Robert Bosch policy: no visa sponsorship for entry/associate technical roles",
-    "bosch": "Robert Bosch policy: no visa sponsorship for entry/associate technical roles",
-    "donaldson": "Donaldson policy: not hiring OPT candidates",
-    "bloom energy": "Bloom Energy policy: no OPT/CPT sponsorship",
-    "young & franklin": "Young & Franklin: ITAR / US-person only",
-    "precision castparts": "Precision Castparts: ITAR / US-person only",
-    "crissair": "Crissair: ITAR / US-person only",
-    "trelleborg": "Trelleborg: ITAR / US-person only",
-    "phillips medisize": "Phillips Medisize: no visa sponsorship + ITAR",
-    "advanced atomization": "Advanced Atomization: US citizen/PR required",
-    "entegris": "Entegris: no visa sponsorship for technical roles"
-}
+KNOWN_NON_SPONSORS = CONFIG["known_non_sponsors"]
 
-TARGET_ANCHORS = ["joby aviation", "joby", "ast spacemobile", "ast space", "micron", "micron technology"]
+TARGET_ANCHORS = CONFIG["target_anchors"]
 
 # Unified candidate master toolkit (grounded in data/candidate_resume_database.json)
-CANDIDATE_MASTER_TOOLKIT = [
-    # Quality Systems & Continuous Improvement
-    "spc", "cpk", "cp/cpk", "msa", "gage r&r", "doe", "fmea", "pfmea", "8d", "rca", "capa",
-    "apqp", "ppap", "control plan", "control plans", "yield", "dppm", "metrology", "defect",
-    "dmaic", "six sigma", "root cause", "continuous improvement", "corrective action",
-    "nonconformance", "qms", "iso 9001", "iatf 16949", "sop", "kaizen",
-    # Aerospace, eVTOL & Composites
-    "as9100", "as9102", "fair", "fai", "gd&t", "cmm", "mrb", "ncr", "car", "rcca",
-    "prepreg", "autoclave", "cfrp", "nde", "composite", "composites", "first article",
-    # Semiconductor & CleanTech Manufacturing
-    "cleanroom", "wafer", "semiconductor", "battery", "cell manufacturing", "roll-to-roll"
-]
+CANDIDATE_MASTER_TOOLKIT = CONFIG["master_toolkit"]
 
 # Staffing Agencies (Section 8)
-STAFFING_AGENCIES = ["actalent", "insight global", "dsj global", "addison group", "mohr talent", "solomonedwards", "talently", "planet pharma", "stark pharma", "ajulia", "goodwin recruiting", "planit group", "lancesoft", "peopleconnect", "pentangle", "link technical talent", "kiewit", "aerotek", "robert half", "randstad", "kelly services", "judge group"]
+STAFFING_AGENCIES = CONFIG["staffing_agencies"]
 
 def load_seen_ledger() -> tuple[set[str], set[str], set[str]]:
     """Load seen URLs, LinkedIn IDs, and normalized company|title fingerprints from seen_jobs.csv."""

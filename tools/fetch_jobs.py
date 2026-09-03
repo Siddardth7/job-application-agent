@@ -22,6 +22,11 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.profile_config import load_config, classify_domain, peer_role_keyword  # noqa: E402
+
+CONFIG = load_config()
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 PIPELINE_DIR = ROOT_DIR / ".pipeline"
 SEEN_JOBS_CSV = ROOT_DIR / "seen_jobs.csv"
@@ -32,15 +37,7 @@ APIFY_TOKEN = os.getenv("APIFY_TOKEN", "")
 ACTOR_ID = "curious_coder~linkedin-jobs-scraper"
 
 # Geo-block list
-BLOCKED_LOCATIONS = [
-    "saudi arabia", "türkiye", "turkey", "india", "germany", "china", "mexico",
-    "canada", "united kingdom", "england", "scotland", "france", "poland",
-    "brazil", "romania", "hungary", "czech", "philippines", "japan", "korea",
-    "singapore", "netherlands", "spain", "italy", "malaysia", "thailand",
-    "vietnam", "indonesia", "australia", "ireland", "belgium", "sweden",
-    "switzerland", "austria", "portugal", "denmark", "norway", "finland",
-    "israel", "taiwan", "hong kong"
-]
+BLOCKED_LOCATIONS = CONFIG["search"]["blocked_locations"]
 
 def is_geo_blocked(location: str) -> bool:
     """Check if location is outside the US."""
@@ -149,14 +146,8 @@ def generate_linkedin_people_links(company: str, title: str) -> tuple[str, str]:
     recruiter_kw = f'"{co_clean}" recruiter OR "talent acquisition"'
     recruiter_url = f"https://www.linkedin.com/search/results/people/?keywords={urllib.parse.quote_plus(recruiter_kw)}&origin=GLOBAL_SEARCH_HEADER"
     
-    role_kw = "quality engineer"
-    if "process" in title.lower():
-        role_kw = "process engineer"
-    elif "manufacturing" in title.lower():
-        role_kw = "manufacturing engineer"
-    elif "mrb" in title.lower():
-        role_kw = "mrb engineer"
-        
+    role_kw = peer_role_keyword(title)
+
     peer_kw = f'"{co_clean}" {role_kw}'
     peer_url = f"https://www.linkedin.com/search/results/people/?keywords={urllib.parse.quote_plus(peer_kw)}&origin=GLOBAL_SEARCH_HEADER"
     
@@ -212,19 +203,7 @@ def normalize_job(item: dict, source_type: str, pass_num: int = 1) -> dict:
     posted_at = item.get("postedAt", "").strip()
     description = item.get("descriptionText", item.get("description", "")).strip()
     
-    company_lower = company.lower()
-    title_lower = title.lower()
-    
-    if any(k in company_lower for k in ["joby", "ast space", "archer", "beta", "wing", "supernal", "overair", "piper", "moog", "gkn"]):
-        track = "Aerospace & eVTOL"
-    elif any(k in company_lower for k in ["micron", "applied materials", "intel", "kla", "asml", "lam research"]):
-        track = "Semiconductor / Target OEM"
-    elif any(k in company_lower for k in ["lucid", "tesla", "bosch", "borgwarner", "ge vernova", "re:build", "rivian", "cummins"]):
-        track = "Advanced Mfg / EV"
-    elif any(k in title_lower for k in ["aerospace", "composites", "cfrp", "mrb", "as9100", "flight"]):
-        track = "Aerospace & eVTOL"
-    else:
-        track = "Manufacturing & Quality"
+    track = classify_domain(company, title)
         
     recruiter_url, peer_url = generate_linkedin_people_links(company, title)
     freshness_status, freshness_badge, freshness_detail = classify_job_freshness(link, posted_at, description)

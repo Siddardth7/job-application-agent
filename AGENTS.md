@@ -4,6 +4,21 @@
 This workspace automates an agentic end-to-end job search pipeline across multiple sub-agents (Fetcher, Ranker, Customiser, Contact-Finder).
 Candidate profile configuration lives in `data/candidate_resume_database.json` and `Resume/Final_Resumes/Resume_NewStrategy_Master.tex`.
 
+## First run: onboarding (required)
+A fresh clone is not personalized. Run `/setup` (Claude Code) — or follow `.claude/commands/setup.md`
+manually in Antigravity/Codex — before any pipeline stage. It reads the user's documents from
+`documents/` and writes `config/search_profile.json`, `profile.md`,
+`data/candidate_resume_database.json`, the two `playbook/` rule files, and the master `.tex`.
+
+**`config/search_profile.json` is the file every stage actually executes on**: search titles,
+skill-fit keywords, domain classification, blocked geographies, eligibility gate lists, and
+anchor companies. Until it exists, `tools/lib/profile_config.py` falls back to
+`config/search_profile.example.json` — the template author's profile — and every score is
+computed against the wrong candidate. Never run a real pipeline on the example config.
+
+After an interview is scheduled, `/interview` (see `.claude/commands/interview.md`) builds the
+prep manual from the submitted resume plus the JD. `/reset` clears personal data back to templates.
+
 ## The Two-Track Architecture
 1. **Track 1: High-Velocity Broad-Fit Lane (Daily Batch)**
    - Target: Strong-fit technical, process, and quality engineering roles at verified sponsors.
