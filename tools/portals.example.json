@@ -1,32 +1,138 @@
 {
-  "_doc": "Portal list for tools/ats_scan.mjs — free zero-token ATS discovery. greenhouse/ashby use `api` or `careers_url`; workday/smartrecruiters use `careers_url` (provider derives the endpoint). Verify: node tools/ats_scan.mjs tools/portals.json (right token → jobs; wrong → 404/422 or WRONG COMPANY — always eyeball the first title). Providers: greenhouse, ashby, lever, workday, smartrecruiters, workable, recruitee, bamboohr, teamtailor, breezy, personio, rippling, successfactors, avature, jibeapply (+ job boards; see ../career-ops/providers/). NO iCIMS/Taleo/Oracle/Eightfold provider — those companies stay on Apify. Workday tenants self-bound via ctx.sinceMs early-stop (since_days). All tokens below VERIFIED live 2026-07-03.",
-  "_freshness_note": "since_days = DAILY window (7d) — keeps the run fast (Workday early-stops on first_published; ~5s) and catches newly-opened roles; dedup (seen_jobs.csv) is the real duplicate guard. Greenhouse date = first_published (original open date, not repost). ATS rows are direct-from-employer 'listed = open' — do NOT apply the LinkedIn 3-day staleness gate to them. To sweep the EXISTING open-role backlog when adding a company, run a ONE-TIME backfill: `node tools/ats_scan.mjs --since-days 120` (slower; wide global Workday tenants like GE Vernova hit the page cap and add non-US noise — a location filter is the next refinement).",
+  "_doc": "Portal list for tools/ats_scan.mjs \u2014 free zero-token ATS discovery. greenhouse/ashby use `api` or `careers_url`; workday/smartrecruiters use `careers_url` (provider derives the endpoint). Verify: node tools/ats_scan.mjs tools/portals.json (right token \u2192 jobs; wrong \u2192 404/422 or WRONG COMPANY \u2014 always eyeball the first title). Providers: greenhouse, ashby, lever, workday, smartrecruiters, workable, recruitee, bamboohr, teamtailor, breezy, personio, rippling, successfactors, avature, jibeapply (+ job boards; see ../career-ops/providers/). NO iCIMS/Taleo/Oracle/Eightfold provider \u2014 those companies stay on Apify. Workday tenants self-bound via ctx.sinceMs early-stop (since_days). All tokens below VERIFIED live 2026-07-03.",
+  "_setup_note": "EXAMPLE FILE. /setup writes tools/portals.json with your own anchor companies' boards. The entries below exist to show the shape of each provider type \u2014 they are not recommendations. Find a company's board by opening its careers page and reading the URL: boards.greenhouse.io/<token>, jobs.ashbyhq.com/<token>, <company>.wd5.myworkdayjobs.com/<site>, jobs.smartrecruiters.com/<token>, jobs.lever.co/<token>.",
+  "_gotcha": "Verify the token, don't guess it. Short company names often collide with an unrelated business on the same ATS, and you will silently scrape the wrong board. Check with: node tools/ats_scan.mjs --verify",
   "since_days": 7,
   "title_filter": {
-    "positive": ["quality", "supplier quality", "process engineer", "manufacturing engineer", "materials", "composites", "metallurg", "mrb", "as9100", "supplier development", "semiconductor", "yield", "dppm", "metrology", "defect", "reticle", "wafer", "quality systems", "quality management system", "qms", "document control", "capa", "nonconformance"],
-    "negative": ["intern", "senior manager", "director", "principal", "staff ", "head of", "manager,", "technician", "operator", "assembler", "inspector"]
+    "positive": [
+      "quality",
+      "supplier quality",
+      "process engineer",
+      "manufacturing engineer",
+      "materials",
+      "composites",
+      "metallurg",
+      "mrb",
+      "as9100",
+      "supplier development",
+      "semiconductor",
+      "yield",
+      "dppm",
+      "metrology",
+      "defect",
+      "reticle",
+      "wafer",
+      "quality systems",
+      "quality management system",
+      "qms",
+      "document control",
+      "capa",
+      "nonconformance"
+    ],
+    "negative": [
+      "intern",
+      "senior manager",
+      "director",
+      "principal",
+      "staff ",
+      "head of",
+      "manager,",
+      "technician",
+      "operator",
+      "assembler",
+      "inspector"
+    ]
   },
-  "_location_note": "US-only by default (set your own scope in config/search_profile.json). Empty location passes (don't punish missing data); always_allow beats block; block = major offshore hubs (cuts global-board noise from Bosch/GE Vernova/etc.); allow empty → US cities like 'Warren, MI' pass. Trims non-US, not a hard gate — Step 4 logistics still applies.",
+  "_location_note": "Geographic scope for board results; set your own in config/search_profile.json. Empty locations pass (missing data isn't a reason to drop a row); always_allow beats block; block trims offshore-hub noise from multinationals' global boards. This trims, it is not a hard gate \u2014 the logistics score still applies.",
   "location_filter": {
-    "always_allow": ["united states", "united states of america"],
-    "block": ["india", "germany", "china", "mexico", "canada", "united kingdom", "england", "scotland", "france", "poland", "brazil", "romania", "hungary", "czech", "philippines", "japan", "korea", "singapore", "netherlands", "spain", "italy", "turkey", "malaysia", "thailand", "vietnam", "indonesia", "australia", "ireland", "belgium", "sweden", "switzerland", "austria", "portugal", "denmark", "norway", "finland", "slovakia", "bulgaria", "serbia", "ukraine", "egypt", "israel", "argentina", "chile", "colombia", "new zealand", "hong kong", "taiwan", "hungary", "morocco", "tunisia"]
+    "always_allow": [
+      "united states",
+      "united states of america"
+    ],
+    "block": [
+      "india",
+      "germany",
+      "china",
+      "mexico",
+      "canada",
+      "united kingdom",
+      "england",
+      "scotland",
+      "france",
+      "poland",
+      "brazil",
+      "romania",
+      "hungary",
+      "czech",
+      "philippines",
+      "japan",
+      "korea",
+      "singapore",
+      "netherlands",
+      "spain",
+      "italy",
+      "turkey",
+      "malaysia",
+      "thailand",
+      "vietnam",
+      "indonesia",
+      "australia",
+      "ireland",
+      "belgium",
+      "sweden",
+      "switzerland",
+      "austria",
+      "portugal",
+      "denmark",
+      "norway",
+      "finland",
+      "slovakia",
+      "bulgaria",
+      "serbia",
+      "ukraine",
+      "egypt",
+      "israel",
+      "argentina",
+      "chile",
+      "colombia",
+      "new zealand",
+      "hong kong",
+      "taiwan",
+      "hungary",
+      "morocco",
+      "tunisia"
+    ]
   },
   "portals": [
-    { "name": "AST SpaceMobile", "provider": "greenhouse", "api": "https://boards-api.greenhouse.io/v1/boards/astspacemobile/jobs", "verified": "2026-08-29", "note": "CORE TARGET ANCHOR. Greenhouse direct API." },
-    { "name": "Supernal", "provider": "greenhouse", "api": "https://boards-api.greenhouse.io/v1/boards/supernal/jobs", "verified": "2026-08-29", "note": "Hyundai eVTOL division. Greenhouse direct API." },
-    { "name": "Archer Aviation", "provider": "greenhouse", "api": "https://boards-api.greenhouse.io/v1/boards/archer56/jobs", "verified": "2026-07-03", "note": "STRONG eVTOL. Token is archer56 — NOT `archer` (that board is Archer Veterinary Clinic)." },
-    { "name": "Beta Technologies", "provider": "greenhouse", "api": "https://boards-api.greenhouse.io/v1/boards/betatechnologiesinc/jobs", "verified": "2026-07-03", "note": "STRONG. Posts Supplier Quality Engineer." },
-    { "name": "Lucid Motors", "provider": "greenhouse", "api": "https://boards-api.greenhouse.io/v1/boards/lucidmotors/jobs", "verified": "2026-07-03", "note": "STRONG. CFRP/carbon (Casa Grande AZ)." },
-    { "name": "Re:Build Manufacturing", "provider": "greenhouse", "api": "https://boards-api.greenhouse.io/v1/boards/rebuildmanufacturing/jobs", "verified": "2026-07-03", "note": "Multi-site quality systems." },
-    { "name": "Wing", "provider": "greenhouse", "api": "https://boards-api.greenhouse.io/v1/boards/wing/jobs", "verified": "2026-07-03", "note": "Alphabet drone delivery." },
-
-    { "name": "General Motors", "provider": "workday", "careers_url": "https://generalmotors.wd5.myworkdayjobs.com/Careers_GM", "verified": "2026-07-03", "note": "Tier1 in-state MI. 870 total, early-stops on since_days. intel: SKIP-by-default (company-wide no OPT/STEM-OPT/H-1B sponsorship, company_intel.md 2026-07-06) — rows are fetched for free visibility but MUST die at the Step 3 intel gate." },
-    { "name": "BorgWarner", "provider": "workday", "careers_url": "https://borgwarner.wd5.myworkdayjobs.com/BorgWarner_Careers", "verified": "2026-07-03", "note": "Tier1 in-state (Auburn Hills MI)." },
-    { "name": "Stellantis", "provider": "workday", "careers_url": "https://stellantis.wd3.myworkdayjobs.com/External_Career_Site_ID01", "verified": "2026-07-03", "note": "Tier1 in-state (Auburn Hills)." },
-    { "name": "Caterpillar", "provider": "workday", "careers_url": "https://cat.wd5.myworkdayjobs.com/CaterpillarCareers", "verified": "2026-07-03", "note": "Tier2. Surfaces Senior Manufacturing Engineer roles. intel: SKIP-by-default (Visa Sponsorship: Not Available as a structured field, company_intel.md 2026-07-06) — fetched free but MUST die at the Step 3 intel gate." },
-    { "name": "GE Vernova", "provider": "workday", "careers_url": "https://gevernova.wd5.myworkdayjobs.com/Vernova_ExternalSite", "verified": "2026-07-03", "note": "Tier3. Host is gevernova.wd5 (NOT ge.wd5 → 422). Global board; location_filter keeps US-only." },
-    { "name": "Robert Bosch", "provider": "smartrecruiters", "careers_url": "https://careers.smartrecruiters.com/BoschGroup", "verified": "2026-07-03", "note": "Tier1 in-state, heavy sponsor. It's the single heaviest portal — SmartRecruiters has NO incremental/windowed fetch, so it pulls all ~4650 postings every run (~23s of HTTP), then location_filter keeps ~14 US quality roles (7d) / ~43 (30d). BUT concurrency-5 runs it in parallel with the Workday tenants, so total wall-clock stays ~30s. Free/zero-token. Park if ever a problem." },
-    { "name": "_Apify-only (no usable public ATS API)", "provider": "none", "enabled": false, "note": "Ford (Oracle), First Solar (Oracle), StandardAero (Oracle; standard.wd1 Workday = Standard INSURANCE, wrong co), Cummins (cummins.jobs), John Deere (deerecareers), Eaton (Eightfold), GKN Aerospace (own), Panasonic Energy (own), Tesla (own), LG Energy MI (own), Joby/Rivian/Wisk (iCIMS). All pulled via LinkedIn/Apify." },
-    { "name": "_FLAG/ITAR greenhouse (verified, intentionally NOT enabled)", "provider": "none", "enabled": false, "note": "divergent, relativity, vast, boomsupersonic — real tokens but ITAR; would only surface auto-gated roles." }
+    {
+      "name": "[Your Anchor Company]",
+      "provider": "greenhouse",
+      "api": "https://boards-api.greenhouse.io/v1/boards/[greenhouse-token]/jobs",
+      "note": "Greenhouse exposes a public JSON API \u2014 the cheapest board to scan."
+    },
+    {
+      "name": "[Another Company]",
+      "provider": "ashby",
+      "careers_url": "https://jobs.ashbyhq.com/[ashby-token]",
+      "note": "Ashby: the provider derives the API endpoint from the careers URL."
+    },
+    {
+      "name": "[A Large Employer]",
+      "provider": "workday",
+      "careers_url": "https://[company].wd5.myworkdayjobs.com/[Site_Name]",
+      "note": "Workday: note the wd1-wd12 shard in the hostname; it varies per company."
+    },
+    {
+      "name": "[A Mid-size Employer]",
+      "provider": "smartrecruiters",
+      "careers_url": "https://jobs.smartrecruiters.com/[company-token]",
+      "note": "SmartRecruiters: token is usually the company name with no spaces."
+    },
+    {
+      "name": "[A Startup]",
+      "provider": "lever",
+      "careers_url": "https://jobs.lever.co/[lever-token]",
+      "note": "Lever: common at startups and scale-ups."
+    }
   ]
 }
