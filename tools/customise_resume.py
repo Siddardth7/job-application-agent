@@ -30,6 +30,10 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
+# Make sibling tools importable no matter how this file is invoked
+# (python3 tools/x.py, cwd elsewhere, or imported from a test).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 FINAL_RESUMES_DIR = ROOT_DIR / "Resume" / "Final_Resumes"
 MASTER_TEX = FINAL_RESUMES_DIR / "Resume_Master.tex"
@@ -56,27 +60,55 @@ def sanitize_filename(name: str) -> str:
     return re.sub(r'[^a-zA-Z0-9_]', '', name.replace(' ', '_').replace('-', '_'))
 
 def analyze_keyword_coverage(job: dict) -> list[dict]:
-    """Classify keywords from JD into coverage matrix."""
-    desc = job.get("description", "").lower()
-    title = job.get("title", "").lower()
-    combined_jd = f"{title} {desc}"
-    
-    coverage = []
-    # Toolkit groups come from the user's own config, not a fixed domain vocabulary.
-    toolkit_map = CONFIG.get("toolkit_groups") or {
-        term: [term] for term in CONFIG.get("master_toolkit", [])
-    }
+    """
+    Classify this JD's keywords against the candidate evidence catalog.
 
-    for tool_name, search_terms in toolkit_map.items():
-        if any(term in combined_jd for term in search_terms):
-            coverage.append({
-                "keyword": tool_name,
-                "priority": "Required / Preferred",
-                "status": "covered",
-                "note": "Aligned directly with candidate profile & projects"
-            })
-            
+    Was: an 8-entry toolkit_map substring-scanned over the JD, with
+    `"status": "covered"` HARDCODED on every hit — the function was structurally
+    incapable of reporting a gap, so every resume's coverage matrix read as 100%
+    no matter what the posting asked for.
+
+    Now it defers to tools/keyword_engine.py, the same module the ranker scores
+    with, so the ranker and the customiser can no longer disagree about what Sid
+    can claim. The ranker's own classification is reused when present on the row.
+    """
+    import keyword_engine as ke
+
+    report = ke.analyse(job.get("description") or "")
+    coverage = []
+    for kw in report["keywords"]:
+        coverage.append({
+            "keyword": kw["canonical"],
+            "priority": "Required" if kw["weight"] == ke.WEIGHT_REQUIRED else "Preferred",
+            "status": {"PROVEN": "covered", "EVIDENCED": "covered",
+                       "ADJACENT": "adjacent", "GAP": "gap"}[kw["tier"]],
+            "resume_safe": kw["resume_safe"],
+            "note": (kw["evidence"][0] if kw.get("evidence")
+                     else kw.get("adjacency_note")
+                     or "No evidence in the candidate record — MUST NOT be claimed."),
+        })
     return coverage
+
+
+def claim_boundary(job: dict) -> dict:
+    """
+    The customiser's hard boundary: what this resume may and may not say.
+
+    The gap list is passed through deliberately rather than withheld. The
+    customiser needs it to know what NOT to write, and the 3-line change summary
+    is required to report what was omitted — a gap that is invisible cannot be
+    reviewed at Gate A or fixed in the taxonomy.
+    """
+    import keyword_engine as ke
+
+    report = ke.analyse(job.get("description") or "")
+    return {
+        "may_claim": report["claimable"],
+        "must_not_claim": report["not_claimable"],
+        "adjacent_defensible": report["buckets"]["ADJACENT"],
+        "coverage_percent": report["coverage_percent"],
+        "extraction": report["extraction"],
+    }
 
 def drafter_agent(job: dict, db: dict, base_tex: str) -> str:
     """

@@ -57,6 +57,41 @@ Nothing else. "Probably fine" is not an override.
 
 ## 4. Scoring model (0–100)
 
+> ### v2 — truthful keyword coverage (`--v2` flag on `tools/gate_and_score.py`)
+>
+> The v1 Skills axis below counted how many of your toolkit words appeared in the JD —
+> *density*. That rewards a posting for naming a skill you do not have. v2 measures
+> *coverage*: of what the posting actually asks for, how much can you claim truthfully.
+> Both models are computed on every run; `--v2` chooses which one routes.
+>
+> | Axis | Pts | Rule |
+> |---|---:|---|
+> | **Truthful keyword coverage** | **40** | `round(40 × coverage)` from `tools/keyword_engine.py` |
+> | **Sponsorship confidence** | 25 | stated 25 · ≥50 H-1B filings 22 · 10-49 17 · 1-9 12 · silent 8 (neutral, never 0) |
+> | **Domain fit** | 15 | `data/domain_priority.json` — flat priority list, first match wins |
+> | **Role + seniority fit** | 15 | discipline and level together; off-discipline is a DROP whatever the total |
+> | **Freshness + employer** | 5 | fresh direct employer 5 · reposted 2 · staffing agency 1 |
+>
+> `data/keyword_taxonomy.json` (copy from the `.template.json`, then promote what you can
+> prove) is the single source of truth for claimable terms. Extraction matches that
+> vocabulary, word-bounded, against the JD's requirement blocks; benefits/EEO/legal blocks
+> are excluded; responsibilities count at preferred weight. Cap 15 terms, each counted once.
+>
+> ```
+> coverage = Σ(weight × credit) / Σ(weight)
+> weight:  required 2 · preferred 1
+> credit:  PROVEN 1.0 · EVIDENCED 1.0 · ADJACENT 0.5 · GAP 0.0
+> ```
+>
+> ADJACENT is one hop inside a taxonomy family, never chained. An extraction that could
+> not run (`EMPTY_JD` / `NONE` / `THIN` / `UNSCOPED`) is reported as such — coverage is
+> `null`, never 100%. Coverage ranks; set a hard floor only after observing your own
+> distribution over a few shadow batches. Gate A lists each row's gap terms; supply
+> evidence for one and it is written back to the taxonomy as proven.
+
+### v1 model — retained for shadow comparison
+
+
 | Axis | Points | What earns them |
 |---|---|---|
 | **A. Sponsorship odds** | 30 | Cross-referenced against `data/uscis_h1b_lookup.json`. Employers with recent approvals score high; no history scores low. [If you need no sponsorship, `/setup` redistributes these 30 points across B and C.] |

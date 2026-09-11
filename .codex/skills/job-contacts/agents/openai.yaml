@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fortify Job Contacts"
+  short_description: "Research contacts with one Supabase store"
+  default_prompt: "Use $job-contacts to research contacts for selected roles without sending outreach."

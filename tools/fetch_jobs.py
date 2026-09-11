@@ -36,11 +36,22 @@ if not PORTALS_JSON.exists():  # pre-setup fallback; /setup writes the user's ow
     PORTALS_JSON = ROOT_DIR / "tools" / "portals.example.json"
 ATS_SCAN_MJS = ROOT_DIR / "tools" / "ats_scan.mjs"
 
-APIFY_TOKEN = os.getenv("APIFY_TOKEN", "")
+# Loaded from the workspace .env before the fetch run starts.  APIFY_KEY is
+# accepted for backward compatibility with the existing local configuration.
+APIFY_TOKEN = ""
 ACTOR_ID = "curious_coder~linkedin-jobs-scraper"
 
 # Geo-block list
 BLOCKED_LOCATIONS = CONFIG["search"]["blocked_locations"]
+
+# Per-pass Apify spend caps. Defaults reproduce the daily multi-pass budget
+# (0.12 + 0.10 + 0.12 + 0.12 ≈ $0.46/day); override per pass in
+# config/search_profile.json under "search": {"apify_pass_caps": {"1": 0.25, ...}}.
+_DEFAULT_PASS_CAPS = {1: 0.12, 2: 0.10, 3: 0.12, 4: 0.12}
+def pass_cap(n: int) -> float:
+    caps = (CONFIG.get("search") or {}).get("apify_pass_caps") or {}
+    return float(caps.get(str(n), _DEFAULT_PASS_CAPS[n]))
+
 
 def is_geo_blocked(location: str) -> bool:
     """Check if location is outside the US."""
@@ -52,37 +63,103 @@ def is_geo_blocked(location: str) -> bool:
             return True
     return False
 
+def normalize_company(name: str) -> str:
+    """Normalize company name by stripping legal entities, sub-brands, and noise."""
+    if not name:
+        return ""
+    c = name.lower()
+    c = re.sub(r'\b(inc|incorporated|corp|corporation|llc|ltd|limited|co|company|technologies|solutions|group|americas|europe|healthcare|dimatix|north america|gmbh|sa|bv|nv|srl)\b', '', c)
+    return re.sub(r'[^a-z0-9]', '', c)
+
+def normalize_title(title: str) -> str:
+    """Normalize job title by stripping shifts, levels, grades, and parentheticals."""
+    if not title:
+        return ""
+    t = title.lower()
+    t = re.sub(r'\b(1st|2nd|3rd|first|second|third|night)\s*shift\b', '', t)
+    t = re.sub(r'\b(i|ii|iii|iv|v|1|2|3|4|5|e1|e2|e3|e4|associate|junior|senior|sr|lead|entry\s*level|new\s*college\s*grad|ncg)\b', '', t)
+    t = re.sub(r'\(.*?\)|\[.*?\]', '', t)
+    return re.sub(r'[^a-z0-9]', '', t)
+
 def load_seen_signatures() -> tuple[set[str], set[str], set[str]]:
-    """Load existing job URLs, LinkedIn IDs, and normalized company|title signatures from seen_jobs.csv."""
+    """Load existing job URLs, LinkedIn IDs, and normalized company|title signatures from seen_jobs.csv and Supabase."""
     seen_urls = set()
     seen_job_ids = set()
     seen_fps = set()
-    if not SEEN_JOBS_CSV.exists():
-        return seen_urls, seen_job_ids, seen_fps
-    try:
-        with open(SEEN_JOBS_CSV, mode="r", encoding="utf-8", errors="ignore") as f:
-            reader = csv.reader(f)
-            header = next(reader, None)
-            for row in reader:
-                if not row:
-                    continue
-                for item in row:
-                    if item and item.startswith("http"):
-                        clean_u = item.split("?")[0].rstrip("/")
-                        seen_urls.add(clean_u)
-                        m = re.search(r'(\d{8,12})', clean_u)
+
+    # 1. Parse seen_jobs.csv (supporting both old and new schema layouts)
+    if SEEN_JOBS_CSV.exists():
+        try:
+            with open(SEEN_JOBS_CSV, mode="r", encoding="utf-8", errors="ignore") as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+                for row in reader:
+                    if not row:
+                        continue
+                    for item in row:
+                        if item and item.startswith("http"):
+                            clean_u = item.split("?")[0].rstrip("/")
+                            seen_urls.add(clean_u)
+                            m = re.search(r'(\d{8,12})', clean_u)
+                            if m:
+                                seen_job_ids.add(m.group(1))
+                    # Determine company & title based on row layout
+                    co_raw = ""
+                    title_raw = ""
+                    if row[0].startswith("2026-"):
+                        # Format: first_seen_date, market, company, title, ...
+                        if len(row) >= 4:
+                            co_raw = row[2]
+                            title_raw = row[3]
+                    else:
+                        # Format: company, title, location, url, date, status
+                        if len(row) >= 2:
+                            co_raw = row[0]
+                            title_raw = row[1]
+                    
+                    if co_raw and title_raw:
+                        seen_fps.add(f"{normalize_company(co_raw)}|{normalize_title(title_raw)}")
+                        seen_fps.add(f"{re.sub(r'[^a-z0-9]', '', co_raw.lower())}|{re.sub(r'[^a-z0-9]', '', title_raw.lower())}")
+        except Exception as e:
+            print(f"Warning reading seen_jobs.csv: {e}", file=sys.stderr)
+
+    # 2. Sync from Supabase applications database of record
+    env_file = ROOT_DIR / ".env"
+    if env_file.exists():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
+
+    global APIFY_TOKEN
+    APIFY_TOKEN = os.environ.get("APIFY_TOKEN") or os.environ.get("APIFY_KEY", "")
+
+    supa_url = os.environ.get("SUPABASE_URL", "https://chsrkysjongzgdbwqhlu.supabase.co")
+    supa_key = os.environ.get("SUPABASE_KEY")
+    if supa_key:
+        try:
+            req = urllib.request.Request(
+                f"{supa_url}/rest/v1/applications?select=company,role,job_url",
+                headers={"apikey": supa_key, "Authorization": f"Bearer {supa_key}"}
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                supa_apps = json.loads(resp.read().decode("utf-8"))
+                for app in supa_apps:
+                    u = (app.get("job_url") or "").strip().split("?")[0].rstrip("/")
+                    if u:
+                        seen_urls.add(u)
+                        m = re.search(r'(\d{8,12})', u)
                         if m:
                             seen_job_ids.add(m.group(1))
-                if len(row) >= 4:
-                    co = re.sub(r'[^a-z0-9]', '', (row[2] or '').lower())
-                    title = re.sub(r'[^a-z0-9]', '', (row[3] or '').lower())
-                    if co and title:
-                        seen_fps.add(f"{co}|{title}")
-                if len(row) >= 7 and row[6]:
-                    raw_fp = re.sub(r'[^a-z0-9|]', '', row[6].lower())
-                    seen_fps.add(raw_fp)
-    except Exception as e:
-        print(f"Warning reading seen_jobs.csv: {e}", file=sys.stderr)
+                    c = app.get("company") or ""
+                    r = app.get("role") or ""
+                    if c and r:
+                        seen_fps.add(f"{normalize_company(c)}|{normalize_title(r)}")
+                        seen_fps.add(f"{re.sub(r'[^a-z0-9]', '', c.lower())}|{re.sub(r'[^a-z0-9]', '', r.lower())}")
+        except Exception as e:
+            print(f"Warning syncing seen ledger from Supabase: {e}", file=sys.stderr)
+
     return seen_urls, seen_job_ids, seen_fps
 
 def load_existing_fetched() -> list[dict]:
@@ -219,6 +296,11 @@ def normalize_job(item: dict, source_type: str, pass_num: int = 1) -> dict:
         "apply_url": apply_url,
         "posted_at": posted_at,
         "description": description,
+        # Requested from Apify in the fields= allowlist but previously dropped
+        # here, so the ranker's seniority axis had to infer level from the title
+        # string alone ("Engineer I" vs "Engineer II"). Board-stated level is the
+        # better signal where it exists.
+        "seniority_level": (item.get("seniorityLevel") or "").strip(),
         "track": track,
         "source": source_type,
         "pass": f"Pass {pass_num}",
@@ -239,7 +321,7 @@ def load_local_jds() -> list[dict]:
     candidates_dirs = [
         ROOT_DIR / "JDs" / today_mm_dd,
         ROOT_DIR / "JDs" / alt_today,
-        ROOT_DIR / "JDs" / "08:31"
+        ROOT_DIR / "JDs" / datetime.now().strftime("%Y-%m-%d")
     ]
     
     found_jobs = []
@@ -301,10 +383,19 @@ def load_local_jds() -> list[dict]:
     return found_jobs
 
 def main():
-    pass_num = 1
+    pass_arg = "all"
     for arg in sys.argv:
         if arg.startswith("--pass="):
-            pass_num = int(arg.split("=")[1])
+            pass_arg = arg.split("=")[1].strip().lower()
+
+    if pass_arg == "all":
+        passes_to_run = [1, 2, 3, 4]
+    else:
+        try:
+            passes_to_run = [int(pass_arg)]
+        except ValueError:
+            print(f"Invalid pass '{pass_arg}', defaulting to all passes (1, 2, 3, 4).")
+            passes_to_run = [1, 2, 3, 4]
             
     skip_apify = "--ats-only" in sys.argv
     PIPELINE_DIR.mkdir(parents=True, exist_ok=True)
@@ -339,9 +430,9 @@ def main():
             # Top-priority domain by title keywords.
             if ST["domain_titles"]:
                 queries_p1.append(linkedin_query(f'{_or(ST["domain_titles"][:6])} AND {_or(ST["titles"])}'))
-            apify_results = run_apify_linkedin_search(queries_p1, max_charge_usd=0.25, count=25)
+            apify_results = run_apify_linkedin_search(queries_p1, max_charge_usd=pass_cap(1), count=25)
             for item in apify_results:
-                raw_jobs.append(normalize_job(item, source_type="linkedin_apify", pass_num=1))
+                raw_jobs.append(normalize_job(item, source_type="linkedin_apify_p2", pass_num=2))
                 
     elif pass_num == 2:
         # Pass 2: Semiconductor & Fab High-Sponsors + CleanTech / EV Sponsors
@@ -351,7 +442,7 @@ def main():
         for i in range(0, len(ST["domain_companies"]), 5):
             batch = ST["domain_companies"][i:i + 5]
             queries_p2.append(linkedin_query(f'{_or(batch)} AND {_or(ST["titles"])}'))
-        apify_results = run_apify_linkedin_search(queries_p2, max_charge_usd=0.25, count=40)
+        apify_results = run_apify_linkedin_search(queries_p2, max_charge_usd=pass_cap(2), count=40)
         for item in apify_results:
             raw_jobs.append(normalize_job(item, source_type="linkedin_apify_p2", pass_num=2))
             
@@ -368,7 +459,7 @@ def main():
             queries_p3.append(linkedin_query(
                 f'{_or(ST["adjacent_titles"])}' + (f' AND {toolkit_expr}' if toolkit_expr else ''),
                 experience="1,2,3"))
-        apify_results = run_apify_linkedin_search(queries_p3, max_charge_usd=0.30, count=40)
+        apify_results = run_apify_linkedin_search(queries_p3, max_charge_usd=pass_cap(3), count=40)
         for item in apify_results:
             raw_jobs.append(normalize_job(item, source_type="linkedin_apify_p3", pass_num=3))
 
@@ -386,7 +477,7 @@ def main():
         intl_kw = _or(intl_titles) + (f' AND {_or(ST["toolkit"])}' if ST["toolkit"] else '')
         queries_intl = [linkedin_query(intl_kw, location=loc, experience="1,2,3")
                         for loc in intl_locations]
-        apify_results = run_apify_linkedin_search(queries_intl, max_charge_usd=0.30, count=40)
+        apify_results = run_apify_linkedin_search(queries_intl, max_charge_usd=pass_cap(4), count=40)
         for item in apify_results:
             raw_jobs.append(normalize_job(item, source_type="linkedin_apify_intl", pass_num=4))
 
@@ -397,6 +488,11 @@ def main():
     for job in raw_jobs:
         url = job.get("link") or job.get("apply_url") or ""
         if not job.get("title") or not job.get("company"):
+            continue
+
+        # Daily runs contain only fresh openings.  A reposted or standing role is
+        # deliberately excluded before it can reach Gate 0 or the shortlist.
+        if job.get("freshness") == "REPOSTED":
             continue
             
         # Geo-Gate Check — US-targeted passes drop foreign mass-posts, but the
@@ -442,7 +538,8 @@ def main():
             extra_count = len(job["mass_posted_locations"])
             job["location"] = f"{job['location']} (+{extra_count} cities)"
             
-    print(f"\nFetch Summary (Pass {pass_num}): {len(raw_jobs)} total raw jobs -> {len(survivors)} deduplicated survivor jobs.")
+    pass_summary_str = "Passes 1–4 All-Inclusive" if is_multi_pass else f"Pass {passes_to_run[0]}"
+    print(f"\nFetch Summary ({pass_summary_str}): {len(raw_jobs)} total raw jobs -> {len(survivors)} deduplicated survivor jobs.")
     
     fetched_json_path = PIPELINE_DIR / "fetched.json"
     with open(fetched_json_path, "w", encoding="utf-8") as f:
@@ -451,7 +548,7 @@ def main():
     fetched_md_path = PIPELINE_DIR / "fetched.md"
     today_str = datetime.now().strftime("%Y-%m-%d")
     with open(fetched_md_path, "w", encoding="utf-8") as f:
-        f.write(f"# Fetched Postings — {today_str} (Pass {pass_num})\n\n")
+        f.write(f"# Fetched Postings — {today_str} ({pass_summary_str})\n\n")
         f.write(f"**Total Raw Discovered:** {len(raw_jobs)} | **New Unique Survivors:** {len(survivors)}\n\n")
         f.write("| # | Company | Title | Location | Freshness | Track | Source | Apply Link | 1-Click Networking |\n")
         f.write("|---|---|---|---|---|---|---|---|---|\n")
@@ -466,4 +563,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

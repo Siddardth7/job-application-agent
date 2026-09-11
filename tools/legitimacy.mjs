@@ -23,6 +23,7 @@ import { pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const CAREER_OPS = '/Users/sid/Documents/Claude/Projects/career-ops';
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 const CAUTION_TRUST_FLAGS = new Set(['suspicious_domain', 'company_domain_mismatch', 'missing_apply_url', 'invalid_url']);
@@ -45,7 +46,7 @@ export function legitCell(v) {
 
 async function buildRepostMatcher(windowDays = 90) {
   const { loadClusters } = await import(pathToFileURL(join(HERE, 'repost_check.mjs')).href);
-  const { roleFuzzyMatch } = await import(pathToFileURL(join(HERE, 'lib', 'role-matcher.mjs')).href);
+  const { roleFuzzyMatch } = await import(pathToFileURL(join(CAREER_OPS, 'role-matcher.mjs')).href);
   let clusters = [];
   try { clusters = loadClusters(windowDays); } catch { clusters = []; }
   return (company, title) => {

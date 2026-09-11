@@ -22,6 +22,20 @@ from pathlib import Path
 class VerificationError(Exception):
     """Raised when LaTeX compilation or PDF checks fail."""
 
+
+def _candidate_identity() -> list[str]:
+    """Name + email from data/candidate_resume_database.json, so the ATS-text
+    check works for whoever cloned this without hardcoding anyone's identity."""
+    import json
+    from pathlib import Path
+    db = Path(__file__).resolve().parent.parent / "data" / "candidate_resume_database.json"
+    try:
+        c = json.loads(db.read_text(encoding="utf-8"))["candidate"]
+        return [v for v in (c.get("name"), c.get("contact", {}).get("email")) if v]
+    except Exception:
+        return []
+
+
 def check_latex_syntax(tex_path: Path) -> list[str]:
     """Scan LaTeX file for dangerous unescaped characters."""
     errors = []
@@ -192,23 +206,7 @@ def main(argv=None):
         pdf_path = target
         
     # Step 2: Verify PDF text layer and pages
-    if args.contains:
-        req_text = args.contains
-    else:
-        req_text = []
-        db_path = Path(__file__).resolve().parent.parent / "data" / "candidate_resume_database.json"
-        if db_path.exists():
-            try:
-                import json
-                db = json.loads(db_path.read_text(encoding="utf-8"))
-                c_name = db.get("candidate", {}).get("name")
-                c_email = db.get("candidate", {}).get("contact", {}).get("email")
-                if c_name:
-                    req_text.append(c_name)
-                if c_email:
-                    req_text.append(c_email)
-            except Exception:
-                pass
+    req_text = args.contains if args.contains else _candidate_identity()
     
     try:
         extractor, text, pages = verify_pdf_content(

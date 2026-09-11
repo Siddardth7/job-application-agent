@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fortify Job Rank"
+  short_description: "Gate and score the current job batch"
+  default_prompt: "Use $job-rank to gate and score the fetched jobs, then stop at Gate A."

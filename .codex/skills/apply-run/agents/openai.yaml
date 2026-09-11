@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fortify Apply Run"
+  short_description: "Run the guarded daily application workflow"
+  default_prompt: "Use $apply-run to prepare today's job-application batch and stop at each human gate."

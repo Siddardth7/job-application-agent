@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "updated": "2026-09-09",
+  "_doc": "Flat domain priority for the ranker's Domain axis (15 pts). Replaces the per-track T1/T2/T3 domain table in P1_06 §4.D — tracks were retired 2026-09-09. Reordering is a JSON edit, not a code change. First matching domain in list order wins, so keep the most specific cues above the general ones.",
+  "max_points": 15,
+  "domains": [
+    {
+      "rank": 1, "points": 15, "label": "Aerospace / space / eVTOL / composites",
+      "cues": ["aerospace", "aviation", "aircraft", "airframe", "evtol", "space", "spacecraft", "satellite", "launch vehicle", "as9100", "composites", "cfrp", "prepreg", "autoclave", "rotorcraft", "structures"]
+    },
+    {
+      "rank": 2, "points": 13, "label": "Semiconductor / advanced packaging / fab",
+      "cues": ["semiconductor", "wafer", "fab", "cleanroom", "photolithography", "advanced packaging", "microelectronics", "reticle", "die attach", "epitaxy"]
+    },
+    {
+      "rank": 3, "points": 11, "label": "EV / battery / clean energy manufacturing",
+      "cues": ["electric vehicle", "ev manufacturing", "battery", "lithium-ion", "cell manufacturing", "solar", "photovoltaic", "clean energy", "renewable", "fuel cell", "hydrogen"]
+    },
+    {
+      "rank": 4, "points": 9, "label": "Medical device / pharma / regulated manufacturing",
+      "cues": ["medical device", "pharmaceutical", "biotech", "iso 13485", "21 cfr", "gmp", "life sciences", "implant", "diagnostics"]
+    },
+    {
+      "rank": 5, "points": 8, "label": "Automotive / heavy equipment / industrial",
+      "cues": ["automotive", "iatf 16949", "powertrain", "heavy equipment", "agricultural equipment", "off-highway", "industrial equipment", "tier 1 supplier"]
+    },
+    {
+      "rank": 6, "points": 7, "label": "Precision machining / metals / tooling",
+      "cues": ["precision machining", "cnc machining", "forging", "casting", "stamping", "tool and die", "metal fabrication", "sheet metal", "foundry"]
+    },
+    {
+      "rank": 7, "points": 6, "label": "Chemical / materials / process manufacturing",
+      "cues": ["chemical", "polymer", "coatings", "adhesives", "specialty materials", "process manufacturing", "refining", "petrochemical", "glass", "ceramics"]
+    },
+    {
+      "rank": 8, "points": 4, "label": "Consumer / food / packaging / general manufacturing",
+      "cues": ["food", "beverage", "consumer goods", "packaging", "cpg", "textiles", "furniture", "appliance"]
+    },
+    {
+      "rank": 9, "points": 3, "label": "Unclassified",
+      "cues": []
+    }
+  ]
+}

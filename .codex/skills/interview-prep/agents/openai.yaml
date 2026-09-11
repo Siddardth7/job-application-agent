@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fortify Interview Prep"
+  short_description: "Prepare grounded role-specific interviews"
+  default_prompt: "Use $interview-prep to prepare me for this role using my submitted resume and JD."

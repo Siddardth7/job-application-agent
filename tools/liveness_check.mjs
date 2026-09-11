@@ -21,12 +21,11 @@
  */
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
+const CAREER_OPS = '/Users/sid/Documents/Claude/Projects/career-ops';
 const CONCURRENCY = 5;
-const { checkLivenessViaApi, resolveAtsApi } = await import(pathToFileURL(join(HERE, 'lib', 'liveness-api.mjs')).href);
+const { checkLivenessViaApi, resolveAtsApi } = await import(pathToFileURL(join(CAREER_OPS, 'liveness-api.mjs')).href);
 
 export function urlOf(row) {
   return row.applyUrl || row.companyApplyUrl || row.link || row.job_url || '';

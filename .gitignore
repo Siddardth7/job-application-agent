@@ -1,57 +1,67 @@
-# Secrets & Environment Variables
+# ── Secrets ──────────────────────────────────────────────────────────────────
 .env
 *.env
 !.env.example
+.mcp.json
+.claude/settings.local.json
+**/settings.local.json
+
+# ── Personal identity (PII) — templates are tracked, the real files are not ──
+profile.md
+data/candidate_resume_database.json
+data/keyword_taxonomy.json
+Resume/Final_Resumes/Resume_NewStrategy_Master.tex
+Resume/Final_Resumes/*.pdf
+Resume/**/*.pdf
+Profiles/
+Interview_Prep/
+Networking/
 
 # Personal profile & config written by /setup (NEVER commit these)
-profile.md
 config/search_profile.json
 company_intel.md
-data/candidate_resume_database.json
 tools/portals.json
 Resume/
 job_tracker.html
 playbook/*.md
 !playbook/*.template.md
-Interview_Prep/
 
 # Generated Resumes & Job Application Output
+# ── Generated applications and job data ─────────────────────────────────────
 Job_Applications_Resumes/
 outputs/
 daily_log/
 daily_run/
 JDs/
+archive/
+site-job-search-tracker/
 
-# Application Trackers & Ledgers
+# ── Real job-description fixtures (verbatim employer text; synthetic ones stay) ──
+tests/fixtures/panasonic_qet1.txt
+tests/fixtures/asml_nxe.txt
+tests/fixtures/gulfstream_sqa.txt
+tests/fixtures/micron_ncg.txt
+
+# ── Trackers, ledgers, run state ─────────────────────────────────────────────
 seen_jobs.csv
 seen_jobs.csv.bak
 tracker_data.json
 *.artifact.html
+.pipeline/
 
-# Pipeline Temp Files
-.pipeline/*
-!.pipeline/.gitkeep
-
-# LaTeX Build Artifacts
-*.aux
-*.log
-*.out
-*.fls
-*.fdb_latexmk
-*.synctex.gz
-
-# Python & Node
-__pycache__/
-*.py[cod]
-*$py.class
-.venv/
-venv/
-node_modules/
-.pytest_cache/
-
-# OS / Editor files
+# ── OS / editor / language noise ─────────────────────────────────────────────
 .DS_Store
-Thumbs.db
-.vscode/
-.idea/
-.claude/settings.local.json
+__pycache__/
+*.pyc
+node_modules/
+*.log
+*.bak
+
+# ── Personal copies of public-facing docs (the tracked README/AGENTS are the scrubbed ones) ──
+README.local.md
+AGENTS.local.md
+playbook/P1_03_resume_customization_rules.md
+playbook/P1_06_ranker_redesign_plan.md
+
+# PII guard pattern list (is itself PII)
+.pii_patterns

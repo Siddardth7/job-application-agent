@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fortify Job Fetch"
+  short_description: "Discover and deduplicate current target jobs"
+  default_prompt: "Use $job-fetch to run today's global job discovery stage."

@@ -24,10 +24,11 @@ import { pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const CAREER_OPS = '/Users/sid/Documents/Claude/Projects/career-ops';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LEDGER = join(HERE, '..', 'seen_jobs.csv');
 
-const { detectReposts } = await import(pathToFileURL(join(HERE, 'lib', 'detect-reposts.mjs')).href);
+const { detectReposts } = await import(pathToFileURL(join(CAREER_OPS, 'detect-reposts.mjs')).href);
 
 /** Minimal RFC4180-ish line parser: handles "quoted, fields" and "" escapes. One row per line. */
 export function parseCsvLine(line) {

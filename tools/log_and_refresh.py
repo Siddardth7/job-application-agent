@@ -55,11 +55,11 @@ def get_existing_job_ids(url: str, key: str, month_day: str) -> tuple[int, set[s
 
 def insert_to_supabase(records: list[dict], dry_run: bool = False) -> int:
     """Insert application records into Supabase via REST API."""
-    url = os.getenv("SUPABASE_URL", "")
-    key = os.getenv("SUPABASE_KEY", "")
+    url = os.getenv("SUPABASE_URL", "https://chsrkysjongzgdbwqhlu.supabase.co")
+    key = os.getenv("SUPABASE_KEY")
     
-    if not url or not key:
-        print("Notice: SUPABASE_URL or SUPABASE_KEY not configured. Skipping remote database sync.", file=sys.stderr)
+    if not key:
+        print("Error: SUPABASE_KEY is missing from environment / .env", file=sys.stderr)
         return 0
         
     endpoint = f"{url}/rest/v1/applications"

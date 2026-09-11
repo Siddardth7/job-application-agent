@@ -1,0 +1,24 @@
+TITLE: Process Quality Engineer
+COMPANY: Fixture Metrology Inc
+LOCATION: Peoria, IL
+LINK: https://example.invalid/jobs/2
+
+Responsibilities
+
+You will own SPC across the line and report SPC health weekly.
+
+Required Qualifications
+
+- SPC experience is required. You must be able to build SPC charts, maintain SPC limits,
+  and audit SPC data daily. Strong SPC fundamentals required.
+- SPC, SPC and more SPC. Did we mention SPC?
+- PFMEA authoring required.
+
+Preferred Qualifications
+
+- APQP exposure is a plus.
+- Familiarity with SPC software preferred.
+
+Benefits
+
+- 401k, equity, unlimited PTO.

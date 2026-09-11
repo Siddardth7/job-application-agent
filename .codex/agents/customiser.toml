@@ -1,5 +1,5 @@
 name = "customiser"
-description = "Stage 3 of /apply-run. Tailors the track base resume for each approved shortlist row per P1_03 and writes the job → resume path map to .pipeline/tailored.md. After ranker, before contact-finder."
+description = "Stage 3 of the Fortify apply run (customise_subagent). Tailors Gate-A-approved rows, verifies one-page ATS PDFs, and writes .pipeline/tailored.json and .pipeline/tailored.md."
 developer_instructions = '''
 You are the **Customiser** for the Job_Applications daily run. Cockpit root:
 `the current repository root (.)`.

@@ -3,9 +3,8 @@
 /**
  * ats_scan.mjs — free, zero-token ATS discovery for the cockpit.
  *
- * Thin runner over career-ops's provider modules (santifer/career-ops, MIT). We
- * do NOT vendor the 44 providers — we import them from the sibling clone so
- * `git -C ../career-ops pull` brings upstream fixes. We skip their scan.mjs
+ * Thin runner over career-ops's provider modules (santifer/career-ops, MIT),
+ * vendored under tools/lib/providers so a fresh clone needs no sibling checkout. We skip their scan.mjs
  * (1285 lines, welded to their apply-centric tracker); this runner only does the
  * one thing we want: hit each portal's public ATS JSON API and emit normalized
  * rows in OUR shape, straight into DAILY_RUN Step 2 (dedup) → the scoring gate (P1_06 §5).
@@ -149,8 +148,66 @@ async function run(configPath, sinceDaysOverride) {
   });
 
   const all = perPortal.flat();
+  await enrichGreenhouseDescriptions(all, portals, ctx);
   console.error(`ats_scan: ${all.length} rows from ${portals.length} portals`);
   process.stdout.write(JSON.stringify(all, null, 2) + '\n');
+}
+
+/**
+ * Fill in `description` for Greenhouse rows.
+ *
+ * career-ops' greenhouse provider maps title/url/company/location/postedAt and
+ * drops `content`, so every ats_direct row reaches the ranker with an empty
+ * description — 44 of 163 rows on 2026-09-09. Those rows cannot be visa-gated
+ * (P1_06 §3 needs the JD text) and cannot be keyword-scored, so they land in
+ * `confidence: low` and never make a shortlist. That silently blanks the anchor
+ * employers: 7 of our 15 portals are Greenhouse, including Lucid and Archer.
+ *
+ * The fix is one query parameter — `?content=true` returns the full description
+ * inline, same request, no extra call, no cost. We do it here rather than in the
+ * provider because career-ops is an upstream sibling clone we do not edit.
+ * One extra request per Greenhouse BOARD (not per job).
+ */
+async function enrichGreenhouseDescriptions(rows, portals, ctx) {
+  const boards = portals.filter(p => p.provider === 'greenhouse' && p.api);
+  if (boards.length === 0) return;
+
+  let filled = 0;
+  await mapPool(boards, CONCURRENCY, async (entry) => {
+    try {
+      const url = new URL(entry.api);
+      url.searchParams.set('content', 'true');
+      const json = /** @type {any} */ (await ctx.fetchJson(url.toString(), { redirect: 'error' }));
+      const byUrl = new Map();
+      for (const j of (json?.jobs || [])) {
+        if (j.absolute_url && j.content) byUrl.set(j.absolute_url, j.content);
+      }
+      for (const r of rows) {
+        if (r.description || !byUrl.has(r.link)) continue;
+        r.description = decodeGreenhouseContent(byUrl.get(r.link));
+        filled++;
+      }
+    } catch (err) {
+      // Never abort a scan over enrichment: a row with no description is still
+      // a usable lead, it just cannot be scored on coverage.
+      console.error(`  ⚠️  ${entry.name} [greenhouse content]: ${err.message}`);
+    }
+  });
+  if (filled) console.error(`  greenhouse: filled ${filled} descriptions via ?content=true`);
+}
+
+/** Greenhouse returns HTML-escaped markup; the gates and keyword engine want text. */
+export function decodeGreenhouseContent(html) {
+  return String(html || '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+    .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '- ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function selfTest() {

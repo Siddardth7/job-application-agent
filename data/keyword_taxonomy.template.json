@@ -1,0 +1,1093 @@
+{
+  "version": "1.0",
+  "updated": "2026-09-09",
+  "_doc": "TEMPLATE. Copy to data/keyword_taxonomy.json and promote terms you can prove. Every term ships as status: gap. Set status to proven (named in your resume Skills) or evidenced (provable from a bullet) and add an evidence string — no evidence, no promotion. Leave gap terms in place: they are the coverage denominator.",
+  "_status_meaning": {
+    "proven": "Named in the master resume Skills section or certifications. Claim freely.",
+    "evidenced": "Provable from an experience/project bullet but not currently a named skill. The customiser MAY surface it into Skills. Evidence string is mandatory.",
+    "gap": "No trace in the candidate record. Never claim. Counts in the coverage denominator."
+  },
+  "_rules": [
+    "A term moves to proven or evidenced ONLY with an evidence entry. No evidence, no promotion.",
+    "gap terms stay in this file permanently. They are the denominator; deleting one inflates coverage.",
+    "Sid's Gate A overrides land here with evidence_source: user-asserted plus his reason.",
+    "Adjacency is ONE HOP inside a family. Never chain: SPC -> Cp/Cpk -> APQP -> PPAP would eventually prove everything."
+  ],
+  "families": {
+    "risk_analysis": "Failure-mode and risk methods",
+    "rca": "Root cause and corrective action",
+    "spc_capability": "Statistical process control and capability",
+    "core_tools": "AIAG production-part approval chain",
+    "inspection": "Dimensional inspection and metrology",
+    "aero_standards": "Aerospace quality standards",
+    "qms_standards": "Quality management systems and audits",
+    "nonconformance": "Nonconforming material handling",
+    "defect_metrics": "Defect rate and yield metrics",
+    "composites": "Composite materials and processing",
+    "machining": "Subtractive manufacturing",
+    "ci_methods": "Continuous improvement methodologies",
+    "data_tools": "Analysis and programming tools",
+    "cad_cae": "Design and simulation software",
+    "materials_char": "Materials characterization",
+    "semiconductor": "Semiconductor and cleanroom processing",
+    "battery": "Cell and battery manufacturing",
+    "automation": "Controls, robotics and vision",
+    "erp": "Enterprise and shop-floor systems",
+    "regulated": "Life-science regulated manufacturing",
+    "joining_am": "Joining and additive processes"
+  },
+  "terms": [
+    {
+      "canonical": "PFMEA",
+      "family": "risk_analysis",
+      "status": "gap",
+      "resume_safe": "PFMEA",
+      "aliases": [
+        "pfmea",
+        "process fmea",
+        "fmea",
+        "failure mode and effects analysis",
+        "failure modes and effects analysis",
+        "failure mode analysis"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "DFMEA",
+      "family": "risk_analysis",
+      "status": "gap",
+      "aliases": [
+        "dfmea",
+        "design fmea"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "FMECA",
+      "family": "risk_analysis",
+      "status": "gap",
+      "aliases": [
+        "fmeca"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "8D",
+      "family": "rca",
+      "status": "gap",
+      "resume_safe": "8D",
+      "aliases": [
+        "8d",
+        "eight disciplines",
+        "8-d"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "5-Why",
+      "family": "rca",
+      "status": "gap",
+      "resume_safe": "5 Whys",
+      "aliases": [
+        "5 why",
+        "5-why",
+        "five why",
+        "5 whys",
+        "why-why"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Root Cause Analysis",
+      "family": "rca",
+      "status": "gap",
+      "resume_safe": "root-cause analysis",
+      "aliases": [
+        "root cause analysis",
+        "root-cause analysis",
+        "rca",
+        "root cause"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "CAPA",
+      "family": "rca",
+      "status": "gap",
+      "resume_safe": "CAPA",
+      "aliases": [
+        "capa",
+        "corrective and preventive action",
+        "corrective action",
+        "preventive action"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "RCCA",
+      "family": "rca",
+      "status": "gap",
+      "resume_safe": "root-cause corrective action",
+      "aliases": [
+        "rcca",
+        "root cause corrective action"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Fishbone",
+      "family": "rca",
+      "status": "gap",
+      "aliases": [
+        "fishbone",
+        "ishikawa",
+        "cause and effect diagram"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "SPC",
+      "family": "spc_capability",
+      "status": "gap",
+      "resume_safe": "SPC",
+      "aliases": [
+        "spc",
+        "statistical process control",
+        "control charts",
+        "control charting"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "MSA",
+      "family": "spc_capability",
+      "status": "gap",
+      "resume_safe": "MSA/Gage R&R",
+      "aliases": [
+        "msa",
+        "measurement system analysis",
+        "gage r&r",
+        "gauge r&r",
+        "gage rr",
+        "grr"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Cp/Cpk",
+      "family": "spc_capability",
+      "status": "gap",
+      "resume_safe": "process capability",
+      "aliases": [
+        "cpk",
+        "cp/cpk",
+        "ppk",
+        "process capability",
+        "capability index",
+        "capability analysis"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Control Plan",
+      "family": "core_tools",
+      "status": "gap",
+      "resume_safe": "Control Plans",
+      "aliases": [
+        "control plan",
+        "control plans"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "APQP",
+      "family": "core_tools",
+      "status": "gap",
+      "aliases": [
+        "apqp",
+        "advanced product quality planning"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "PPAP",
+      "family": "core_tools",
+      "status": "gap",
+      "aliases": [
+        "ppap",
+        "production part approval process"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "GD&T",
+      "family": "inspection",
+      "status": "gap",
+      "resume_safe": "GD&T",
+      "aliases": [
+        "gd&t",
+        "gdt",
+        "gd and t",
+        "geometric dimensioning and tolerancing",
+        "geometric dimensioning"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "CMM",
+      "family": "inspection",
+      "status": "gap",
+      "resume_safe": "CMM",
+      "aliases": [
+        "cmm",
+        "coordinate measuring machine"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "FAI",
+      "family": "inspection",
+      "status": "gap",
+      "resume_safe": "First Article Inspection",
+      "aliases": [
+        "fai",
+        "first article",
+        "first article inspection",
+        "fair",
+        "first-article"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Metrology",
+      "family": "inspection",
+      "status": "gap",
+      "resume_safe": "dimensional metrology",
+      "aliases": [
+        "metrology",
+        "dimensional inspection",
+        "dimensional measurement"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Tolerance Stack-Up",
+      "family": "inspection",
+      "status": "gap",
+      "resume_safe": "tolerance stack-up analysis",
+      "aliases": [
+        "tolerance stack",
+        "tolerance stack-up",
+        "stack-up analysis",
+        "tolerance analysis"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "AS9100",
+      "family": "aero_standards",
+      "status": "gap",
+      "resume_safe": "AS9100D",
+      "aliases": [
+        "as9100",
+        "as9100d",
+        "as 9100"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "AS9102",
+      "family": "aero_standards",
+      "status": "gap",
+      "resume_safe": "AS9102 FAIR",
+      "aliases": [
+        "as9102",
+        "as 9102"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "AS9145",
+      "family": "aero_standards",
+      "status": "gap",
+      "resume_safe": "AS9145",
+      "aliases": [
+        "as9145"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "NADCAP",
+      "family": "aero_standards",
+      "status": "gap",
+      "aliases": [
+        "nadcap"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "ISO 9001",
+      "family": "qms_standards",
+      "status": "gap",
+      "resume_safe": "ISO 9001",
+      "aliases": [
+        "iso 9001",
+        "iso9001"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "QMS",
+      "family": "qms_standards",
+      "status": "gap",
+      "resume_safe": "quality management system",
+      "aliases": [
+        "qms",
+        "quality management system",
+        "quality system"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Internal Audit",
+      "family": "qms_standards",
+      "status": "gap",
+      "resume_safe": "audit readiness",
+      "aliases": [
+        "internal audit",
+        "audit readiness",
+        "quality audit",
+        "layered process audit"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "IATF 16949",
+      "family": "qms_standards",
+      "status": "gap",
+      "aliases": [
+        "iatf 16949",
+        "iatf16949",
+        "ts 16949"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "ISO 13485",
+      "family": "regulated",
+      "status": "gap",
+      "aliases": [
+        "iso 13485",
+        "iso13485"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Document Control",
+      "family": "qms_standards",
+      "status": "gap",
+      "aliases": [
+        "document control",
+        "change control",
+        "ecn",
+        "engineering change notice"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "MRB",
+      "family": "nonconformance",
+      "status": "gap",
+      "resume_safe": "MRB disposition",
+      "aliases": [
+        "mrb",
+        "material review board"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "NCR",
+      "family": "nonconformance",
+      "status": "gap",
+      "resume_safe": "NCR disposition",
+      "aliases": [
+        "ncr",
+        "nonconformance report",
+        "non-conformance",
+        "nonconforming material",
+        "nonconformance"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Supplier Quality",
+      "family": "nonconformance",
+      "status": "gap",
+      "resume_safe": "supplier quality",
+      "aliases": [
+        "supplier quality",
+        "supplier corrective action",
+        "scar",
+        "supplier development",
+        "incoming inspection"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "DPMO",
+      "family": "defect_metrics",
+      "status": "gap",
+      "resume_safe": "DPMO",
+      "aliases": [
+        "dpmo",
+        "defects per million opportunities"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "DPPM",
+      "family": "defect_metrics",
+      "status": "gap",
+      "aliases": [
+        "dppm",
+        "ppm defect",
+        "parts per million defect"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Yield",
+      "family": "defect_metrics",
+      "status": "gap",
+      "resume_safe": "yield analysis",
+      "aliases": [
+        "yield",
+        "yield analysis",
+        "yield improvement",
+        "first pass yield",
+        "fpy"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Scrap Reduction",
+      "family": "defect_metrics",
+      "status": "gap",
+      "resume_safe": "scrap reduction",
+      "aliases": [
+        "scrap",
+        "scrap reduction",
+        "rework reduction"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Composites",
+      "family": "composites",
+      "status": "gap",
+      "resume_safe": "composites manufacturing",
+      "aliases": [
+        "composite",
+        "composites",
+        "composite materials",
+        "composites manufacturing"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Prepreg Layup",
+      "family": "composites",
+      "status": "gap",
+      "resume_safe": "prepreg layup",
+      "aliases": [
+        "prepreg",
+        "hand layup",
+        "hand lay-up",
+        "layup",
+        "lay-up",
+        "ply layup"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Autoclave",
+      "family": "composites",
+      "status": "gap",
+      "resume_safe": "autoclave cure",
+      "aliases": [
+        "autoclave",
+        "autoclave cure",
+        "cure cycle",
+        "curing"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "CFRP",
+      "family": "composites",
+      "status": "gap",
+      "resume_safe": "CFRP",
+      "aliases": [
+        "cfrp",
+        "carbon fiber",
+        "carbon fibre",
+        "carbon fiber reinforced"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Vacuum Bagging",
+      "family": "composites",
+      "status": "gap",
+      "resume_safe": "vacuum bagging",
+      "aliases": [
+        "vacuum bag",
+        "vacuum bagging",
+        "debulk"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "NDE",
+      "family": "composites",
+      "status": "gap",
+      "resume_safe": "NDE/void inspection",
+      "aliases": [
+        "nde",
+        "ndt",
+        "nondestructive",
+        "non-destructive",
+        "ultrasonic inspection",
+        "void inspection"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "CNC Machining",
+      "family": "machining",
+      "status": "gap",
+      "resume_safe": "CNC machining",
+      "aliases": [
+        "cnc",
+        "cnc machining",
+        "machining",
+        "milling",
+        "turning"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Tooling",
+      "family": "machining",
+      "status": "gap",
+      "resume_safe": "tooling",
+      "aliases": [
+        "tooling",
+        "die",
+        "dies",
+        "fixture design",
+        "tool design"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "EDM",
+      "family": "machining",
+      "status": "gap",
+      "resume_safe": "EDM",
+      "aliases": [
+        "edm",
+        "electrical discharge machining"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Injection Molding",
+      "family": "machining",
+      "status": "gap",
+      "aliases": [
+        "injection molding",
+        "injection moulding",
+        "molding"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Welding",
+      "family": "joining_am",
+      "status": "gap",
+      "aliases": [
+        "welding",
+        "weld",
+        "brazing"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Additive Manufacturing",
+      "family": "joining_am",
+      "status": "gap",
+      "aliases": [
+        "additive manufacturing",
+        "3d printing",
+        "am process"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "DMAIC",
+      "family": "ci_methods",
+      "status": "gap",
+      "resume_safe": "DMAIC",
+      "aliases": [
+        "dmaic"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Six Sigma",
+      "family": "ci_methods",
+      "status": "gap",
+      "resume_safe": "Six Sigma Green Belt (CSSC)",
+      "aliases": [
+        "six sigma",
+        "green belt",
+        "black belt",
+        "lean six sigma"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Continuous Improvement",
+      "family": "ci_methods",
+      "status": "gap",
+      "resume_safe": "continuous improvement",
+      "aliases": [
+        "continuous improvement",
+        "process improvement"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Process Mapping",
+      "family": "ci_methods",
+      "status": "gap",
+      "resume_safe": "process mapping",
+      "aliases": [
+        "process mapping",
+        "value stream",
+        "value stream mapping",
+        "process flow"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Kaizen",
+      "family": "ci_methods",
+      "status": "gap",
+      "aliases": [
+        "kaizen"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Lean Manufacturing",
+      "family": "ci_methods",
+      "status": "gap",
+      "aliases": [
+        "lean",
+        "lean manufacturing",
+        "5s",
+        "poka-yoke",
+        "poka yoke",
+        "kanban"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "DOE",
+      "family": "ci_methods",
+      "status": "gap",
+      "resume_safe": null,
+      "aliases": [
+        "doe",
+        "design of experiments",
+        "designed experiments"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Python",
+      "family": "data_tools",
+      "status": "gap",
+      "resume_safe": "Python",
+      "aliases": [
+        "python"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Excel",
+      "family": "data_tools",
+      "status": "gap",
+      "resume_safe": "Excel",
+      "aliases": [
+        "excel",
+        "microsoft excel",
+        "spreadsheet"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "MATLAB",
+      "family": "data_tools",
+      "status": "gap",
+      "resume_safe": "MATLAB",
+      "aliases": [
+        "matlab"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Statistical Analysis",
+      "family": "data_tools",
+      "status": "gap",
+      "resume_safe": "statistical analysis",
+      "aliases": [
+        "statistical analysis",
+        "hypothesis testing",
+        "t-test",
+        "regression analysis",
+        "logistic regression",
+        "anova"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Machine Learning",
+      "family": "data_tools",
+      "status": "gap",
+      "resume_safe": "Random Forest / Gradient Boosting",
+      "aliases": [
+        "machine learning",
+        "random forest",
+        "gradient boosting",
+        "predictive model"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "SQL",
+      "family": "data_tools",
+      "status": "gap",
+      "aliases": [
+        "sql",
+        "database query"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Minitab",
+      "family": "data_tools",
+      "status": "gap",
+      "aliases": [
+        "minitab",
+        "jmp"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Power BI",
+      "family": "data_tools",
+      "status": "gap",
+      "aliases": [
+        "power bi",
+        "tableau"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "SolidWorks",
+      "family": "cad_cae",
+      "status": "gap",
+      "resume_safe": "SolidWorks",
+      "aliases": [
+        "solidworks",
+        "solid works"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "ABAQUS",
+      "family": "cad_cae",
+      "status": "gap",
+      "resume_safe": "ABAQUS",
+      "aliases": [
+        "abaqus"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "FEA",
+      "family": "cad_cae",
+      "status": "gap",
+      "resume_safe": "finite element analysis",
+      "aliases": [
+        "fea",
+        "finite element",
+        "finite element analysis",
+        "structural analysis"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "CATIA",
+      "family": "cad_cae",
+      "status": "gap",
+      "aliases": [
+        "catia",
+        "nx",
+        "creo",
+        "siemens nx"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "AutoCAD",
+      "family": "cad_cae",
+      "status": "gap",
+      "aliases": [
+        "autocad"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "ANSYS",
+      "family": "cad_cae",
+      "status": "gap",
+      "aliases": [
+        "ansys"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Blueprint Reading",
+      "family": "cad_cae",
+      "status": "gap",
+      "resume_safe": "engineering drawing interpretation",
+      "aliases": [
+        "blueprint reading",
+        "drawing interpretation",
+        "technical drawings",
+        "engineering drawings"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "SEM/EDS",
+      "family": "materials_char",
+      "status": "gap",
+      "resume_safe": "SEM/EDS",
+      "aliases": [
+        "sem",
+        "eds",
+        "scanning electron",
+        "edx"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "XRD",
+      "family": "materials_char",
+      "status": "gap",
+      "resume_safe": "XRD",
+      "aliases": [
+        "xrd",
+        "x-ray diffraction"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Hardness Testing",
+      "family": "materials_char",
+      "status": "gap",
+      "resume_safe": "hardness testing (ASTM E384)",
+      "aliases": [
+        "hardness testing",
+        "vickers",
+        "rockwell",
+        "astm e384",
+        "microhardness"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Heat Treatment",
+      "family": "materials_char",
+      "status": "gap",
+      "resume_safe": "heat treatment",
+      "aliases": [
+        "heat treatment",
+        "heat treat",
+        "annealing",
+        "sintering"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Cleanroom",
+      "family": "semiconductor",
+      "status": "gap",
+      "aliases": [
+        "cleanroom",
+        "clean room",
+        "iso class"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Wafer Fabrication",
+      "family": "semiconductor",
+      "status": "gap",
+      "aliases": [
+        "wafer",
+        "wafer fab",
+        "photolithography",
+        "lithography",
+        "etch process",
+        "reticle"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Semiconductor Packaging",
+      "family": "semiconductor",
+      "status": "gap",
+      "aliases": [
+        "advanced packaging",
+        "die attach",
+        "wire bond",
+        "semiconductor packaging"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Vacuum Systems",
+      "family": "semiconductor",
+      "status": "gap",
+      "aliases": [
+        "vacuum system",
+        "vacuum technology",
+        "high vacuum"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Battery Cell Manufacturing",
+      "family": "battery",
+      "status": "gap",
+      "aliases": [
+        "battery",
+        "cell manufacturing",
+        "lithium-ion",
+        "li-ion",
+        "electrode coating",
+        "roll-to-roll",
+        "cell assembly"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "PLC",
+      "family": "automation",
+      "status": "gap",
+      "aliases": [
+        "plc",
+        "programmable logic controller",
+        "scada",
+        "ladder logic"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Robotics",
+      "family": "automation",
+      "status": "gap",
+      "aliases": [
+        "robotics",
+        "robot",
+        "cobot",
+        "automation cell"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Machine Vision",
+      "family": "automation",
+      "status": "gap",
+      "aliases": [
+        "machine vision",
+        "vision system",
+        "optical inspection",
+        "aoi"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "SAP",
+      "family": "erp",
+      "status": "gap",
+      "aliases": [
+        "sap",
+        "erp system",
+        "oracle erp"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "MES",
+      "family": "erp",
+      "status": "gap",
+      "aliases": [
+        "mes",
+        "manufacturing execution system"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "GMP",
+      "family": "regulated",
+      "status": "gap",
+      "aliases": [
+        "gmp",
+        "cgmp",
+        "good manufacturing practice"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "FDA 21 CFR 820",
+      "family": "regulated",
+      "status": "gap",
+      "aliases": [
+        "21 cfr",
+        "cfr 820",
+        "fda regulation",
+        "design history file"
+      ],
+      "evidence": []
+    },
+    {
+      "canonical": "Validation IQ/OQ/PQ",
+      "family": "regulated",
+      "status": "gap",
+      "aliases": [
+        "iq/oq/pq",
+        "process validation",
+        "installation qualification",
+        "operational qualification"
+      ],
+      "evidence": []
+    }
+  ]
+}

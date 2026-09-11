@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fortify Resume Customise"
+  short_description: "Tailor grounded one-page ATS resumes"
+  default_prompt: "Use $resume-customise for the Gate-A-approved shortlist rows."
