@@ -1,0 +1,16 @@
+# Runs the same offline suite as tools/check.sh on every push and PR.
+# Its only job is catching a commit made from a clone without the pre-commit hook.
+name: check
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: cp config/search_profile.example.json config/search_profile.json
+      - run: cp data/keyword_taxonomy.template.json data/keyword_taxonomy.json
+      - run: bash tools/check.sh

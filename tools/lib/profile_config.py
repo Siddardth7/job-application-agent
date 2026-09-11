@@ -8,7 +8,10 @@ author's targets, so running the pipeline on it scores against the wrong profile
 ponytail: plain dict, no schema validation. Add one when a bad config actually bites.
 """
 
+from __future__ import annotations
+
 import json
+import re
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
@@ -39,16 +42,21 @@ def using_example_config() -> bool:
     return not USER_CONFIG.exists()
 
 
+def _has(term: str, text: str) -> bool:
+    """Word-bounded containment: 'ev' must not match 'development'."""
+    return re.search(r'(?<![a-z0-9])' + re.escape(term.lower()) + r'(?![a-z0-9])', text) is not None
+
+
 def classify_domain(company: str, title: str) -> str:
     """Map a posting to a domain label using the configured company/title keywords."""
     cfg = load_config()
     company_lower = (company or "").lower()
     title_lower = (title or "").lower()
     for domain in cfg.get("domains", []):
-        if any(k in company_lower for k in domain.get("company_keywords", [])):
+        if any(_has(k, company_lower) for k in domain.get("company_keywords", []) if k):
             return domain["name"]
     for domain in cfg.get("domains", []):
-        if any(k in title_lower for k in domain.get("title_keywords", [])):
+        if any(_has(k, title_lower) for k in domain.get("title_keywords", []) if k):
             return domain["name"]
     return cfg.get("default_domain", "Uncategorized")
 
@@ -69,13 +77,25 @@ def _or(terms: list) -> str:
 
 
 def linkedin_query(keywords: str, location: str = "United States",
-                   days: int = 7, experience: str = "2,3") -> str:
-    """Build one LinkedIn jobs search URL. f_TPR is seconds; f_E is experience level."""
+                   days: int = 7, experience: str | None = "2,3",
+                   job_type: str | None = None) -> str:
+    """Build one LinkedIn jobs search URL.
+
+    f_TPR is seconds; f_E is experience level (1 intern, 2 entry, 3 associate);
+    f_JT is job type (F full-time, C contract, T temporary, I internship, P part-time).
+    None omits the filter. The Apify actor translates these classic filters into
+    its AI-search wording (autoConvertToAiSearch), so they remain the right knobs.
+    """
     import urllib.parse
-    return ("https://www.linkedin.com/jobs/search/?keywords="
-            + urllib.parse.quote_plus(keywords)
-            + "&location=" + urllib.parse.quote_plus(location)
-            + f"&f_TPR=r{days * 86400}&f_E={experience}")
+    url = ("https://www.linkedin.com/jobs/search/?keywords="
+           + urllib.parse.quote_plus(keywords)
+           + "&location=" + urllib.parse.quote_plus(location)
+           + f"&f_TPR=r{days * 86400}")
+    if experience:
+        url += f"&f_E={experience}"
+    if job_type:
+        url += f"&f_JT={job_type}"
+    return url
 
 
 def search_terms() -> dict:
@@ -106,6 +126,9 @@ def demo() -> None:
         assert classify_domain(probe, "Engineer") == first["name"], "company keyword routing broken"
     # An unknown company with an unknown title falls through to the default.
     assert classify_domain("Zzz Unknown Co", "Widget Polisher") == cfg["default_domain"]
+    # Substring bug (audit R8): "ev" must not match "Development", "cell" not "Excellence".
+    assert classify_domain("Zzz Unknown Co", "Product Development Engineer") == cfg["default_domain"]
+    assert classify_domain("Zzz Unknown Co", "Center of Excellence Engineer") == cfg["default_domain"]
     # Peer keyword falls back when no substring matches.
     mapping = cfg["search"]["peer_role_keywords"]
     assert peer_role_keyword("Totally Unrelated Title") == mapping["_default"]
@@ -117,6 +140,8 @@ def demo() -> None:
     assert q.startswith("https://www.linkedin.com/jobs/search/?keywords=")
     assert "f_TPR=r604800" in q, "7 days must encode as 604800 seconds"
     assert " " not in q, "query must be URL-escaped"
+    assert "f_E" not in linkedin_query("x", experience=None)
+    assert "f_JT=C,T,I" in linkedin_query("x", job_type="C,T,I")
     assert _or(["a", "b"]) == '("a" OR "b")'
     st = search_terms()
     assert st["titles"], "search.role_titles must not be empty"

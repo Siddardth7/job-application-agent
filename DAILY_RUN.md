@@ -10,13 +10,30 @@ Step 1: FETCH (ATS + Apify) ──▶ Step 2: GATE 0 & SCORE ──▶ 🧑 GATE
 🧑 GATE B (you Applies & Networks) ◀── Step 4: SUPABASE & REBUILD ◀── Step 3: CUSTOMIZE & PDF VERIFY
 ```
 
-### Stage 1: Fetch (`python3 tools/fetch_jobs.py --pass=N`)
-- **Direct ATS Scan**: Scans public Greenhouse, Workday, SmartRecruiters, and Lever boards (free, zero-token) for the career boards listed in `tools/portals.json` (written by `/setup` from your anchor companies).
-- **Apify LinkedIn Scraper**: Runs targeted queries for your `target_anchors` and `search.role_titles` from `config/search_profile.json`, with $\le \$0.50$ spend cap and compact field extraction.
-  - **Pass 1** — anchor companies + your top-priority domain. **Pass 2** — remaining priority domains. **Pass 3** — broad search across all `role_titles`, including adjacent/technician-level titles. **Pass 4** — international roles, which bypass the geo gate in `search.blocked_locations`.
-- **Scope (new strategy):** Search area is **global** — US plus Europe, Australia, and beyond (run `--pass=4`). **Quality & process technician roles are in scope** (they convert into engineering); pure machinist/operator/assembler roles stay dropped by the ranker's technician gate.
-- **Dedup**: Gated against `seen_jobs.csv` ledger.
-- **Handoff**: `.pipeline/fetched.json` & `.pipeline/fetched.md`.
+### Stage 1: Fetch (`python3 tools/fetch_jobs.py`)
+Every batch is **today only** — nothing is carried over from a previous run, and the fetcher never
+writes `seen_jobs.csv`. Six passes, each with its own window and Apify cap
+(`search.pass_days`, `search.apify_pass_caps` in `config/search_profile.json`):
+
+| Pass | Source | Window | What it searches |
+|---|---|---|---|
+| 0 | Your hand-found postings | — | `--jds=<folder>` of Markdown JDs and/or `--url=<LinkedIn job URL>`; the agent asks first |
+| 1 | Company career sites (free) | 3 days | `tools/ats_scan.mjs` over `tools/portals.json`; Greenhouse, Workday and SmartRecruiters descriptions are fetched per job; portals in `known_non_sponsors` are skipped and flagged |
+| 2 | LinkedIn, target companies | 3 days | `target_anchors` × `role_titles` |
+| 3 | LinkedIn, all domains | 24 hours | every domain's `company_keywords` × `role_titles`, plus the bare titles |
+| 4 | LinkedIn, non-full-time | 24 hours | contract / temporary / internship / co-op, plus `adjacent_titles` (technicians) |
+| 5 | LinkedIn, international | 3 days | `role_titles` + `adjacent_titles` per `intl_locations`, no level filter; bypasses the country block |
+
+- **Filter order:** unusable → reposted (text or >14 days old) → outside the US (word-bounded, US
+  states and regions never blocked; international rows exempt) → already in the seen ledger
+  (requisition id, URL, job id, company+title) → duplicate in this run → same company+title folded
+  into one multi-city row.
+- **Handoffs:** `.pipeline/fetched.json` (the record), `.pipeline/fetched.md` (rendered, with the
+  per-pass table and the "worth a job description" list), `.pipeline/fetch_report.json`
+  (status / raw / kept / cap / reason per pass, drop counts, skipped portals).
+- **Blank descriptions:** a career-site row the scanner could not enrich stays in the batch flagged
+  `needs_jd`; the ranker cannot score it. The fetcher lists the best 10 for the user to fetch by hand.
+- Offline checks: `python3 tools/fetch_jobs.py --self-test`, `--dry-run` (fixture, no network).
 
 ### Stage 2: Gate 0 & Scoring (`python3 tools/gate_and_score.py`)
 - **Gate 0 (Eligibility Gate)**: Verbatim check for ITAR, export control, U.S. Citizenship, Security Clearance, or explicit "no sponsorship". Fails immediately to `VISA RISK (SKIP)` with the quoted snippet.

@@ -1,8 +1,8 @@
 {
-  "_doc": "Portal list for tools/ats_scan.mjs \u2014 free zero-token ATS discovery. greenhouse/ashby use `api` or `careers_url`; workday/smartrecruiters use `careers_url` (provider derives the endpoint). Verify: node tools/ats_scan.mjs tools/portals.json (right token \u2192 jobs; wrong \u2192 404/422 or WRONG COMPANY \u2014 always eyeball the first title). Providers: greenhouse, ashby, lever, workday, smartrecruiters, workable, recruitee, bamboohr, teamtailor, breezy, personio, rippling, successfactors, avature, jibeapply (+ job boards; see ../career-ops/providers/). NO iCIMS/Taleo/Oracle/Eightfold provider \u2014 those companies stay on Apify. Workday tenants self-bound via ctx.sinceMs early-stop (since_days). All tokens below VERIFIED live 2026-07-03.",
-  "_setup_note": "EXAMPLE FILE. /setup writes tools/portals.json with your own anchor companies' boards. The entries below exist to show the shape of each provider type \u2014 they are not recommendations. Find a company's board by opening its careers page and reading the URL: boards.greenhouse.io/<token>, jobs.ashbyhq.com/<token>, <company>.wd5.myworkdayjobs.com/<site>, jobs.smartrecruiters.com/<token>, jobs.lever.co/<token>.",
+  "_doc": "Portal list for tools/ats_scan.mjs — free zero-token ATS discovery. greenhouse/ashby use `api` or `careers_url`; workday/smartrecruiters use `careers_url` (provider derives the endpoint). Verify: node tools/ats_scan.mjs tools/portals.json (right token → jobs; wrong → 404/422 or WRONG COMPANY — always eyeball the first title). Providers: greenhouse, ashby, lever, workday, smartrecruiters, workable, recruitee, bamboohr, teamtailor, breezy, personio, rippling, successfactors, avature, jibeapply (+ job boards; see ../career-ops/providers/). NO iCIMS/Taleo/Oracle/Eightfold provider — those companies stay on Apify. Workday tenants self-bound via ctx.sinceMs early-stop (since_days). All tokens below VERIFIED live 2026-07-03.",
+  "_setup_note": "EXAMPLE FILE. /setup writes tools/portals.json with your own anchor companies' boards. The entries below exist to show the shape of each provider type — they are not recommendations. Find a company's board by opening its careers page and reading the URL: boards.greenhouse.io/<token>, jobs.ashbyhq.com/<token>, <company>.wd5.myworkdayjobs.com/<site>, jobs.smartrecruiters.com/<token>, jobs.lever.co/<token>.",
   "_gotcha": "Verify the token, don't guess it. Short company names often collide with an unrelated business on the same ATS, and you will silently scrape the wrong board. Check with: node tools/ats_scan.mjs --verify",
-  "since_days": 7,
+  "since_days": 3,
   "title_filter": {
     "positive": [
       "quality",
@@ -43,7 +43,7 @@
       "inspector"
     ]
   },
-  "_location_note": "Geographic scope for board results; set your own in config/search_profile.json. Empty locations pass (missing data isn't a reason to drop a row); always_allow beats block; block trims offshore-hub noise from multinationals' global boards. This trims, it is not a hard gate \u2014 the logistics score still applies.",
+  "_location_note": "Geographic scope for board results; set your own in config/search_profile.json. Empty locations pass (missing data isn't a reason to drop a row); always_allow beats block; block trims offshore-hub noise from multinationals' global boards. This trims, it is not a hard gate — the logistics score still applies.",
   "location_filter": {
     "always_allow": [
       "united states",
@@ -108,7 +108,7 @@
       "name": "[Your Anchor Company]",
       "provider": "greenhouse",
       "api": "https://boards-api.greenhouse.io/v1/boards/[greenhouse-token]/jobs",
-      "note": "Greenhouse exposes a public JSON API \u2014 the cheapest board to scan."
+      "note": "Greenhouse exposes a public JSON API — the cheapest board to scan."
     },
     {
       "name": "[Another Company]",

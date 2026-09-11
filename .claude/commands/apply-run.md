@@ -13,8 +13,12 @@ stages produce their `.pipeline/*.md` handoffs and `daily_run/<today>.md` from w
 available, but no Apify spend, no networking sends, no DB writes beyond what a stage already owns.
 
 0. **Prep.** `rm -rf .pipeline && mkdir .pipeline`. Read `profile.md` and set `TODAY=$(date +%F)`.
-1. **Fetch.** Delegate to the `fetcher` subagent. Wait for `.pipeline/fetched.md`. If it has
-   **OPEN QUESTIONS**, STOP and show the candidate. If the survivor set is empty, STOP and say so.
+1. **Fetch.** Delegate to the `fetcher` subagent (`.agents/skills/fetcher/SKILL.md`). It asks the
+   candidate for hand-found postings first, then runs `python3 tools/fetch_jobs.py`. Wait for
+   `.pipeline/fetched.md` and `.pipeline/fetch_report.json`. Relay the pass table (status / raw /
+   kept / cap / failure reason per pass) and the postings that arrived without a job description.
+   If it has **OPEN QUESTIONS**, STOP and show the candidate. If every pass failed or the survivor
+   set is empty, STOP and say so.
 2. **Rank.** Delegate to the `ranker` subagent. Wait for `.pipeline/ranked.md`. If OPEN QUESTIONS,
    STOP. **🧑 GATE A (Shortlist):** show the candidate the merged scored shortlist (referral lane first, then
    direct-apply picks with their base resume). **STOP and ask:** *is today's list sufficient, and

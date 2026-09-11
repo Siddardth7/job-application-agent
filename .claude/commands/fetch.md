@@ -1,13 +1,15 @@
 ---
-description: Run just the fetch → dedup → screen sweep and stop (standalone — no scoring/resume/networking). Delegates to the fetcher subagent.
+description: Run just Stage 1 (fetch) and stop — no scoring, no resumes, no networking. Delegates to the fetcher subagent.
 ---
-Run the fetch sweep only: $ARGUMENTS
+Run the fetch only: $ARGUMENTS
 
-Standalone entry to the `fetcher` subagent — use when you want today's new-and-screened survivor list
-without going into scoring/resume/networking.
+Standalone entry to the `fetcher` subagent (`.agents/skills/fetcher/SKILL.md`) — use when you
+want today's new postings without ranking them. The full daily run is `/apply-run`; this exists
+for checking what the passes return.
 
-1. Delegate to the **fetcher** subagent to run `DAILY_RUN.md` Steps 1-3 (ATS + optional Apify → dedup
-   vs `seen_jobs.csv` → keyword/seniority screen). `$ARGUMENTS` may narrow scope (e.g. "ATS only",
-   "T1 only") — pass it through; otherwise run the standard sweep.
-2. Show you the survivor table + per-track/source counts + any Apify spend. Stop there — no scoring
-   (that's `/rank` or `/apply-run`), no resumes, no contacts.
+1. Delegate to the **fetcher** subagent. It asks whether you have hand-found postings (a JD
+   folder or LinkedIn URLs), then runs `python3 tools/fetch_jobs.py`. `$ARGUMENTS` may narrow
+   scope and is passed through as flags: "ATS only" → `--ats-only`, "pass 1 and 2" → `--pass=1,2`.
+2. Show the pass table from `.pipeline/fetch_report.json` (status, raw, kept, cap, failure
+   reason per pass), any career sites skipped as known non-sponsors, the postings worth a job
+   description, and the survivor count. Stop there.
