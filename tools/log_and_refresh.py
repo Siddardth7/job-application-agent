@@ -95,8 +95,7 @@ def insert_to_supabase(records: list[dict], dry_run: bool = False) -> int:
         # historical rows mis-tagged. Drive the tag off the scorer's lane, not the
         # fetch-time domain label.
         lane_val = "direct-apply"
-        is_curated = "Track 2" in rec.get("lane", "")
-        track_val = "T2" if is_curated else "T1"
+        track_val = "T1"   # tracks retired 2026-09-09; one lane, one score
         tag = "[Curated Target Lane]" if is_curated else "[Broad-Fit Direct Apply]"
         
         payload = [{

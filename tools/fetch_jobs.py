@@ -301,7 +301,7 @@ def process_batch(raw_jobs: list[dict], seen: ledger.Seen) -> tuple[list[dict], 
         if is_geo_blocked(job.get("location", "")) and not job.get("source", "").endswith("intl"):
             drops["geo_blocked"] += 1
             continue
-        why = seen.match(job)
+        why = seen.match(job) if job.get("pass_num") != 0 else ""
         if why:
             drops["already_seen"] += 1
             continue

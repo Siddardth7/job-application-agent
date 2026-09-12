@@ -107,6 +107,7 @@ class Seen:
         self.job_ids: set[str] = set()
         self.fps: set[str] = set()
         self.req_ids: set[str] = set()
+        self.applied_urls: set[str] = set()   # from the applications table, or ledger status=applied*
 
     def add(self, company: str = "", title: str = "", url: str = "", req_id: str = "") -> None:
         u = clean_url(url)
@@ -163,6 +164,8 @@ def load_seen(csv_path: Path = SEEN_JOBS_CSV, supabase: bool = True) -> Seen:
                         co = title = ""
                     rid = row[req_col] if req_col is not None and len(row) > req_col else ""
                     seen.add(co, title, url, rid)
+                    if url and any(c.startswith("applied") for c in row):
+                        seen.applied_urls.add(clean_url(url))
                     if len(row) >= 7 and row[6] and "|" in row[6]:
                         seen.fps.add(re.sub(r'[^a-z0-9|]', '', row[6].lower()))
         except Exception as e:
@@ -179,6 +182,8 @@ def load_seen(csv_path: Path = SEEN_JOBS_CSV, supabase: bool = True) -> Seen:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 for app in json.loads(resp.read().decode("utf-8")):
                     seen.add(app.get("company") or "", app.get("role") or "", app.get("job_url") or "")
+                    if app.get("job_url"):
+                        seen.applied_urls.add(clean_url(app["job_url"]))
         except Exception as e:
             print(f"Warning syncing seen ledger from Supabase: {e}", file=sys.stderr)
     return seen

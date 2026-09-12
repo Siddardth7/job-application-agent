@@ -20,9 +20,10 @@ available, but no Apify spend, no networking sends, no DB writes beyond what a s
    If it has **OPEN QUESTIONS**, STOP and show the candidate. If every pass failed or the survivor
    set is empty, STOP and say so.
 2. **Rank.** Delegate to the `ranker` subagent. Wait for `.pipeline/ranked.md`. If OPEN QUESTIONS,
-   STOP. **🧑 GATE A (Shortlist):** show the candidate the merged scored shortlist (referral lane first, then
-   direct-apply picks with their base resume). **STOP and ask:** *is today's list sufficient, and
-   which direct-apply rows to pursue?* Do not proceed until you approves. If empty, STOP.
+   STOP. **🧑 GATE A (Shortlist):** show the candidate the Apply table (score, sub-scores, keyword
+   gaps, cautions), then the Reserve, Unverified and Needs-JD counts with one line each on what they
+   mean. **STOP and ask:** *is today's list sufficient, which Apply rows to tailor, and any Reserve or
+   Unverified row to promote?* Do not proceed until the candidate approves. If Apply is empty, STOP.
 3. **Customise.** Delegate to the `customiser` subagent, telling it which direct-apply rows you
    approved (all referral-lane rows are always built per Step 6·A·1). Wait for `.pipeline/tailored.md`.
    If OPEN QUESTIONS, STOP.

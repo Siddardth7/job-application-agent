@@ -5,7 +5,11 @@
     "location": "[CITY, STATE]",
     "work_authorization": "[US citizen | Permanent resident | F-1 OPT, needs sponsorship]",
     "needs_sponsorship": true,
-    "seniority_target": "[e.g. new grad / 0-2 years]"
+    "seniority_target": "[e.g. new grad / 0-2 years]",
+    "max_years": 2,
+    "languages": [
+      "english"
+    ]
   },
   "search": {
     "role_titles": [
@@ -125,13 +129,56 @@
       "points": 26,
       "companies": [
         "[company known to sponsor readily]"
-      ]
+      ],
+      "points_out_of": 30
     },
     "tier2": {
       "points": 22,
       "companies": [
         "[company that sponsors occasionally]"
-      ]
+      ],
+      "points_out_of": 30
     }
+  },
+  "scoring": {
+    "_doc": "Optional. Anything here overrides the defaults in tools/gate_and_score.py SCORING_DEFAULTS. Delete keys you do not want to change.",
+    "weights": {
+      "coverage": 40,
+      "sponsorship": 25,
+      "domain": 15,
+      "role_fit": 15,
+      "logistics": 5
+    },
+    "apply_threshold": 50,
+    "shortlist_size": 15,
+    "max_per_company": 2,
+    "domain_floor": 3,
+    "off_discipline_cues": [
+      "inspector",
+      "auditor",
+      "software",
+      "sales",
+      "recruiter",
+      "designer",
+      "nurse",
+      "driver"
+    ],
+    "title_drop_cues": [
+      "machinist",
+      "operator",
+      "assembler",
+      "welder",
+      "apprentice",
+      "principal",
+      "director",
+      "head of",
+      "vice president",
+      "chief",
+      "senior manager",
+      "staff engineer"
+    ],
+    "drop_non_english": true,
+    "drop_intl_staffing": true,
+    "carry_over_days": 1
   }
 }
