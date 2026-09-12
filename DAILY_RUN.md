@@ -36,14 +36,24 @@ writes `seen_jobs.csv`. Six passes, each with its own window and Apify cap
 - Offline checks: `python3 tools/fetch_jobs.py --self-test`, `--dry-run` (fixture, no network).
 
 ### Stage 2: Gate 0 & Scoring (`python3 tools/gate_and_score.py`)
-- **Gate 0 (Eligibility Gate)**: Verbatim check for ITAR, export control, U.S. Citizenship, Security Clearance, or explicit "no sponsorship". Fails immediately to `VISA RISK (SKIP)` with the quoted snippet.
-- **Fit Scoring (0–100)**: Evaluates domain priority, `master_toolkit` keyword coverage, seniority fit, and sponsorship odds — all from `config/search_profile.json`.
-- **Routing**:
-  - `Track 2: Curated Target` (an anchor company, or a top-priority-domain fit $\ge 75$)
-  - `Track 1: Broad-Fit Apply` (Score $\ge 50$, strong sponsor)
-  - `Drop` (Score $< 50$ or VISA RISK)
-- **Handoff**: `.pipeline/ranked.md` & `.pipeline/ranked.json`.
-- 🧑 **GATE A**: you reviews the scored shortlist and approves rows to customize.
+One formula, out of 100, every knob in `config/search_profile.json` → `scoring` (defaults in the
+script): **Coverage 40** (truthful ATS keyword coverage from `data/keyword_taxonomy.json`) +
+**Sponsorship 25** (stated in the JD, else H-1B filings, else your `known_sponsors`; silence is a
+neutral 8) + **Domain 15** (order of your `domains` list) + **Role fit 15** (your titles = core,
+years required vs `candidate.max_years`) + **Logistics 5** (fresh, direct employer).
+
+- **Gate 0** first, with the quoted snippet: `known_non_sponsors`, no-sponsorship / export-control /
+  citizenship / clearance language (all skipped when `candidate.needs_sponsorship` is false),
+  `title_drop_cues`, non-English text (unless in `candidate.languages`), residency-only, seen ledger.
+  Export-control boilerplate and "may require a license" wording are cautions shown at Gate A, not drops.
+- **Buckets:** `Apply` (top 15 confident rows ≥ 50, max 2 per company) · `Reserve` (held by the caps) ·
+  `Unverified` (above 50 but the keyword check was thin) · `Needs JD` (no text) · `Drop` (gated,
+  off-discipline, below 50). Nothing is dropped silently; every bucket is on the page.
+- **Ledger:** every row is appended to `seen_jobs.csv` with its bucket as status. **Carry-over:** yesterday's
+  Apply/Reserve rows not yet applied are re-scored today, marked ↩︎, once (`daily_run/ranked_<date>.json`).
+- **Handoffs:** `.pipeline/ranked.json` (the record), `.pipeline/ranked.md` (Gate A page),
+  `.pipeline/ranked_summary.json` (decisions only, what the ranker skill reads).
+- 🧑 **GATE A**: you review the Apply table, promote Reserve/Unverified rows by number, and name the rows to tailor.
 
 ### Stage 3: Customize & Verify (`python3 tools/customise_resume.py`)
 - Full Drafter-Reviewer Agent architecture grounded against `data/candidate_resume_database.json`.

@@ -309,7 +309,7 @@ def main():
         ranked_jobs = json.load(f)
         
     shortlisted_jobs = [
-        j for j in ranked_jobs if j.get("lane") in ["Track 1: Broad-Fit Apply", "Track 2: Curated Target"]
+        j for j in ranked_jobs if j.get("lane") in ["Apply", "Reserve", "Unverified"]
     ]
     
     db = load_candidate_database()

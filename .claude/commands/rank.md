@@ -1,15 +1,15 @@
 ---
-description: Score one hand-found role against the rubric (standalone — no full apply-run). Delegates to the ranker subagent.
+description: Score one hand-found role with the same formula the daily run uses (standalone — no full apply-run). Delegates to the ranker subagent.
 ---
 Score ONE role: $ARGUMENTS
 
-Standalone entry to the `ranker` subagent — use when you find a role yourself and want to know its
-score, lane, and whether it's referral-worthy, outside `/apply-run`.
+Standalone entry to the `ranker` subagent (`.agents/skills/ranker/SKILL.md`), for a role you found
+yourself. The score is the same one `/apply-run` produces; nothing is written to the seen ledger.
 
-1. Get the role facts from `$ARGUMENTS` (company, title, JD text or URL). If the JD isn't provided,
-   ask for it or the URL — the gates and skills score read the JD, not the title.
-2. Delegate to the **ranker** subagent for this single role, telling it to use these facts as its
-   input **instead of `.pipeline/fetched.md`**, and to apply `playbook/P1_06_scoring_rubric.md`
-   (track classify → hard gates → per-track score → lane routing).
-3. Relay the sub-scores, TOTAL, lane (Referral ≥80 / Direct-apply 45-79 / Drop), and referral-needed.
-   Nothing is written to live stores in standalone mode unless you asks.
+1. Get the role from `$ARGUMENTS`: a LinkedIn job URL, or company + title + the JD text. Without
+   a JD the coverage axis cannot run, so ask for the text or the URL.
+2. Put it through Pass 0 and the scorer without touching today's batch:
+   `python3 tools/fetch_jobs.py --pass=0 --url=<url>` (or `--jds=<folder>` for a Markdown JD),
+   then `python3 tools/gate_and_score.py --no-ledger --no-carry`.
+3. Relay the bucket, the score, the five sub-scores with their reasons, the claimable / adjacent /
+   gap keyword lists, and any Gate 0 or caution note. Stop there.

@@ -2,6 +2,33 @@
 
 Newest first. One entry per merged change that alters what the pipeline does.
 
+## 2026-09-12 — Ranker: one formula, five buckets, ledger + carry-over
+
+Ranker (`tools/gate_and_score.py`)
+- v1 is gone. One score out of 100: Coverage 40 + Sponsorship 25 + Domain 15 + Role fit 15 +
+  Logistics 5. Every weight, threshold and cue list is read from `config/search_profile.json`
+  → `scoring` with defaults in the script, so a fresh profile works unedited.
+- Domain priority comes from the profile's ordered `domains` list; `data/domain_priority.json`
+  is removed. Discipline cues default to the profile's own role titles.
+- Five buckets, nothing dropped silently: Apply (top 15 confident, max 2 per normalized
+  company), Reserve, Unverified (thin keyword check, shown with its score), Needs JD, Drop.
+- Gate 0: export-control language gates only when the sentence (or the next) states a
+  requirement; "may require a license" is a caution shown at Gate A. Language gate needs a
+  foreign title word or two body cues; the English word "taken" no longer drops a JD;
+  Portuguese added. Intern, co-op and technician titles are no longer gated (Pass 4 fetches
+  them). `candidate.needs_sponsorship=false` disables every visa gate.
+- Years-of-experience read only from requirement lines that mention experience; ranges take
+  the low bound; "founded 10 years ago" no longer zeroes a row.
+- USCIS lookup matches whole tokens (KLA no longer matches Oklahoma). `known_sponsors` tiers
+  now count, scaled to the axis.
+- Every ranked row is appended to `seen_jobs.csv` with status shortlisted / unscored /
+  dropped (header gains `req_id`). Yesterday's Apply/Reserve rows not yet applied are
+  re-scored once, marked ↩︎ (`daily_run/ranked_<date>.json`). Pass 0 rows bypass the ledger.
+- `ranked.md` rewritten around the buckets; `ranked_summary.json` carries apply / reserve /
+  unverified / needs_jd / gated. Customiser and Supabase logger read the new `Apply` lane.
+- Self-test runs on a synthetic profile and the synthetic taxonomy: 45 assertions covering
+  every audit finding above.
+
 ## 2026-09-11 — Fetcher rebuilt to the six-pass spec; offline test suite
 
 Fetcher (`tools/fetch_jobs.py`, `tools/ats_scan.mjs`, `tools/lib/ledger.py`)
