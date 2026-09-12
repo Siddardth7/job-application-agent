@@ -376,5 +376,23 @@ paths; the docs describe a system that does not exist.
     `tools/resolve_track.py <N>` added (self-test in `check.sh`); gate checks 1 and 6 diff against it,
     plus new check 10 (0 bad boxes before the log is deleted).
 
-**Still open from the top list:** 1 (`tailored.json` contract), 4 (tracker deploy target), 5
-(caution-note dedupe), 7 (Apify spend) — the fetcher/tracker pass.
+**Top-list items 1, 2, 4, 5, 7 — CLOSED 2026-09-12 (same branch):**
+1. ✅ `tools/log_and_refresh.py` now builds `.pipeline/tailored.json` itself from the customiser's
+   `tailored.md` table (fixed header `| # | Company | Title | Track | .tex | .pdf |`) joined to
+   `ranked.json` on (company, title); unmatched rows fail loudly. Self-test in `check.sh`; proven
+   against yesterday's real handoff (15/15 joined). The customiser spec now pins the table shape.
+2. ✅ `recommended_resume` removed from ranker rows; the customiser picks `\ResumeType` from the JD.
+4. ✅ Decision: Supabase is the record, `job_tracker.html` (from `./refresh.sh --fetch`) is the view,
+   the ChatGPT Sites page (`TRACKER_SITE_URL` in `.env`) is where it's hosted and has no push API —
+   so the rebuild ends with an explicit "upload `job_tracker.html`" reminder, and `/apply-run` Gate B
+   lists that upload as a human next-action. Cowork `index.html` mirror still written; `Artifact`
+   tool never used for this.
+5. ✅ `check_eligibility_gate` dedupes caution notes (overlapping ITAR/EAR patterns hit the same
+   sentence); self-test added.
+7. ✅ `fetch_jobs.py` reads back `usageTotalUsd` from each Apify run (`/runs/last`, one free GET per
+   pass) into `fetch_report.json.spend_usd`; `fetched.md` shows "spent / cap" per pass and a run
+   total. `None` when unreadable, never a crash.
+Also: `/apply-run` prep no longer `rm -rf`s `.pipeline/` (it was deleting the tracked `.gitkeep`
+every run); the fetcher's Pass-1-only non-sponsor skip stays as designed (Gate 0 is the backstop).
+
+**Nothing from this report remains open.**

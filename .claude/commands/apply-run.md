@@ -12,7 +12,7 @@ If `$ARGUMENTS` contains `dry-run`, run with **all fetch-spend / apply / send ac
 stages produce their `.pipeline/*.md` handoffs and `daily_run/<today>.md` from whatever data is
 available, but no Apify spend, no networking sends, no DB writes beyond what a stage already owns.
 
-0. **Prep.** `rm -rf .pipeline && mkdir .pipeline`. Read `profile.md` and set `TODAY=$(date +%F)`.
+0. **Prep.** `rm -f .pipeline/*.json .pipeline/*.md` (keep the directory and its `.gitkeep`). Read `profile.md` and set `TODAY=$(date +%F)`.
 1. **Fetch.** Delegate to the `fetcher` subagent (`.agents/skills/fetcher/SKILL.md`). It asks the
    candidate for hand-found postings first, then runs `python3 tools/fetch_jobs.py`. Wait for
    `.pipeline/fetched.md` and `.pipeline/fetch_report.json`. Relay the pass table (status / raw /
@@ -36,15 +36,14 @@ available, but no Apify spend, no networking sends, no DB writes beyond what a s
    3-line summaries + apply links). Then update the live-state stores by **append/update, never
    rewrite**: `seen_jobs.csv` statuses, tracker rows in Supabase / `tracker_data.json`. `.pipeline/`
    is scratch; `daily_run/<today>.md` is the record.
-6. **Feed the artifact (DAILY_RUN Step 10 — mandatory, not optional, skip only on `dry-run`).**
-   INSERT today's applications + contacts into Supabase (project `chsrkysjongzgdbwqhlu`, per
-   `DAILY_RUN.md` §10·A/10·B — include every `job_url`), then rebuild the tracker:
-   `select json_build_object('apps', ..., 'contacts', ...)` → `tracker_data.json` → `python3 refresh.py`
-   (or `./refresh.sh --fetch` if `SUPABASE_KEY` is in `.env`). This writes
-   `~/Documents/Claude/Artifacts/job-search-tracker/index.html` directly — Cowork auto-deploys on file
-   write, so **never** call the `Artifact` tool for this. **`daily-activity-tracker` is retired — do
-   not touch it.** Verify: `grep` today's `job_id`s in the regenerated `index.html` and confirm
-   `id="today-date"` shows today.
+6. **Feed the tracker (DAILY_RUN Stage 4 — mandatory, skip only on `dry-run`).**
+   `python3 tools/log_and_refresh.py --dry-run`, then without the flag. It builds
+   `.pipeline/tailored.json` from `tailored.md` + `ranked.json`, INSERTs today's applications and
+   upserts the recruiter/team-lead contact links into Supabase (`chsrkysjongzgdbwqhlu`), appends
+   `seen_jobs.csv`, and runs `./refresh.sh --fetch`, which rebuilds `job_tracker.html`. The live page
+   is the ChatGPT Sites site in `TRACKER_SITE_URL` and has no push API: **tell the candidate to upload
+   `job_tracker.html` there** as part of the Gate B next-action. Never call the `Artifact` tool for
+   this; `daily-activity-tracker` is retired. Verify: `grep` today's `job_id`s in `job_tracker.html`.
 7. **Gate (🧑 GATE B).** Report the run summary and the **exact next human action** — which tailored
    resumes to apply with (and the apply links), and which drafted contacts to review + send. **STOP.**
 

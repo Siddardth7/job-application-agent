@@ -184,17 +184,76 @@ def rebuild_tracker(dry_run: bool = False):
     else:
         print(f"  Tracker rebuild warning: {res.stderr}", file=sys.stderr)
 
+def records_from_handoff(tailored_md: str, ranked: list[dict]) -> list[dict]:
+    """
+    Stage-4 records from the customiser's handoff. The customiser writes only
+    `.pipeline/tailored.md` (a subagent, not a script — see docs/audits item 1);
+    its table header is `| # | Company | Title | Track | .tex | .pdf |`. Each row
+    is joined to its `ranked.json` row on (company, title), which carries the
+    location, score, links and the recruiter/team-lead search URLs Stage 4 needs.
+    """
+    by_key = {((r.get("company") or "").strip().lower(), (r.get("title") or "").strip().lower()): r
+              for r in ranked}
+    out, missing = [], []
+    for line in tailored_md.splitlines():
+        cells = [c.strip().strip("`*").strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 6 or not cells[0].isdigit():
+            continue
+        _, company, title, _track, tex, pdf = cells[:6]
+        row = by_key.get((company.lower(), title.lower()))
+        if row is None:  # the customiser trimmed a long title: accept a unique prefix match
+            cands = [r for (co, ti), r in by_key.items() if co == company.lower() and ti.startswith(title.lower())]
+            row = cands[0] if len(cands) == 1 else None
+        if row is None:
+            missing.append(f"{company} — {title}")
+            continue
+        rec = {k: v for k, v in row.items() if k != "description"}
+        rec.update(tex_path=tex, resume_file=pdf)
+        out.append(rec)
+    if missing:
+        raise SystemExit("tailored.md rows with no matching ranked.json row (company/title must match exactly): "
+                         + "; ".join(missing))
+    return out
+
+
+def self_test() -> None:
+    md = ("| # | Company | Title | Track | .tex | .pdf |\n|---|---|---|---|---|---|\n"
+          "| 1 | **Acme** | Quality Engineer | 0 | `x/src/resume_Acme_QE.tex` | `x/resume_Acme_QE.pdf` |\n"
+          "| 2 | Beta | Process Engineer | 1 | b.tex | b.pdf |\n")
+    ranked = [{"company": "Acme", "title": "Quality Engineer", "score": 80, "link": "u", "description": "long"},
+              {"company": "Beta", "title": "process engineer - Ottawa (Spring)", "score": 70, "link": "v", "description": "long"}]
+    recs = records_from_handoff(md, ranked)
+    assert [r["company"] for r in recs] == ["Acme", "Beta"]          # Beta joined by unique title prefix
+    try:
+        records_from_handoff(md, ranked + [{"company": "Beta", "title": "Process Engineer II"}])
+        raise AssertionError("ambiguous prefix must fail loudly")
+    except SystemExit:
+        pass
+    assert recs[0]["resume_file"] == "x/resume_Acme_QE.pdf" and recs[0]["score"] == 80
+    assert "description" not in recs[0]
+    try:
+        records_from_handoff(md, ranked[:1]); raise AssertionError("unmatched row must fail loudly")
+    except SystemExit as e:
+        assert "Beta" in str(e)
+    print("OK  log_and_refresh self-check passed")
+
+
 def main():
     load_env()
     dry_run = "--dry-run" in sys.argv
-    
+
     tailored_json_path = PIPELINE_DIR / "tailored.json"
-    if not tailored_json_path.exists():
-        print(f"Error: {tailored_json_path} not found. Stage 3 (customiser) must run first.", file=sys.stderr)
-        sys.exit(1)
-        
-    with open(tailored_json_path, "r", encoding="utf-8") as f:
-        records = json.load(f)
+    if tailored_json_path.exists():
+        records = json.loads(tailored_json_path.read_text(encoding="utf-8"))
+    else:
+        md, ranked = PIPELINE_DIR / "tailored.md", PIPELINE_DIR / "ranked.json"
+        if not (md.exists() and ranked.exists()):
+            print(f"Error: need {md} and {ranked}. Stages 2 and 3 must run first.", file=sys.stderr)
+            sys.exit(1)
+        records = records_from_handoff(md.read_text(encoding="utf-8"),
+                                       json.loads(ranked.read_text(encoding="utf-8")))
+        tailored_json_path.write_text(json.dumps(records, indent=2), encoding="utf-8")
+        print(f"Built {tailored_json_path} from tailored.md + ranked.json ({len(records)} rows).")
         
     if not records:
         print("No tailored records found to log.")
@@ -210,4 +269,7 @@ def main():
     rebuild_tracker(dry_run=dry_run)
 
 if __name__ == "__main__":
+    if "--self-test" in sys.argv:
+        self_test()
+        sys.exit(0)
     main()

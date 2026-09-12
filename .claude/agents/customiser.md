@@ -63,10 +63,19 @@ playbook line renamed a project in all 15 resumes. That is the failure this rule
    what was deliberately left out and why).
 
 ## Write (only this handoff)
-`.pipeline/tailored.md` — the job → resume map: one row per tailored resume with company, title,
-track number, the `.tex` path, the `.pdf` path, and the 3-line change summary; then the self-check
-gate results below. Note any row you could NOT tailor and why.
-(`.pipeline/tailored.json` is Stage 4's contract, not yours — see `docs/audits/` item 1.)
+`.pipeline/tailored.md` — the job → resume map. **Stage 4 parses this file**, so the table header
+and row shape are fixed:
+
+```
+| # | Company | Title | Track | .tex | .pdf |
+|---|---|---|---|---|---|
+| 1 | Micron Technology | New College Grad - RAM RDA Process Engineer | 1 | Job_Applications_Resumes/2026-09-11/src/resume_Micron_RDAProcess.tex | Job_Applications_Resumes/2026-09-11/resume_Micron_RDAProcess.pdf |
+```
+
+Company and Title must be **exactly** the `company` / `title` strings from `ranked.json` (Stage 4
+joins on them); paths are full repo-relative paths, never abbreviated. Below the table: the 3-line
+change summary per row, then the self-check gate results. Note any row you could NOT tailor and why.
+You do not write `tailored.json` — `tools/log_and_refresh.py` builds it from this table + `ranked.json`.
 
 ## MUST
 - Follow P1_03 exactly; truth-only, one page, no em dashes, no buzzwords, no company name.

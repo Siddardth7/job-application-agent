@@ -74,7 +74,9 @@ years required vs `candidate.max_years`) + **Logistics 5** (fresh, direct employ
 - Inserts application records to Supabase `applications` table (two-track: **T1 Broad-Fit / T2 Curated Target** — T3 is retired).
 - **Persists the 1-click recruiter + team-lead LinkedIn people-search links to the Supabase `contacts` table** — the source-of-truth "contacts place" — keyed to each new `job_id` (recruiter → persona `RECRUITER`, team lead → persona `SENIOR_MANAGER`). This happens automatically here; no separate step needed. See **Source Contacts Place** below.
 - Appends new URLs to `seen_jobs.csv`.
-- Executes `./refresh.sh --fetch` (MANDATORY: pulls live database state to rebuild `job_tracker.html` and deploy Cowork `index.html`).
+- Builds `.pipeline/tailored.json` itself from the customiser's `tailored.md` table + `ranked.json` (no stage writes it by hand).
+- Executes `./refresh.sh --fetch` (MANDATORY: pulls live database state to rebuild `job_tracker.html`, the Cowork `index.html` mirror, and `job_tracker.artifact.html`).
+- **Deploy target:** the live tracker is the ChatGPT Sites page in `TRACKER_SITE_URL` (`.env`). It has no push API — after the rebuild, **upload `job_tracker.html` to it by hand**; `refresh.sh` prints the reminder. Supabase stays the source of truth; the HTML is a view.
 - Exports high-score networking sheet via `python3 networking_sheet.py export --date <today>` if qualifying roles exist.
 - 🧑 **GATE B**: you receives the verified PDFs and apply links to submit directly.
 

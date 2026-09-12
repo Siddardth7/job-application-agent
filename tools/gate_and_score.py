@@ -208,6 +208,10 @@ def check_eligibility_gate(job: dict, cfg: dict) -> tuple[bool, str, str, list[s
     full_text = f"{job.get('title', '')} {job.get('company', '')} {job.get('description', '') or ''}"
     cautions: list[str] = []
 
+    def caution(note: str) -> None:
+        if note not in cautions:   # overlapping patterns can hit the same sentence twice
+            cautions.append(note)
+
     if cand["needs_sponsorship"]:
         for co, reason in cfg["known_non_sponsors"].items():
             if co and word_match(co, company_lower):
@@ -218,15 +222,15 @@ def check_eligibility_gate(job: dict, cfg: dict) -> tuple[bool, str, str, list[s
                 continue
             sentence = _sentence_around(full_text, m.start(), m.end())
             if mode == "rescuable" and POSITIVE_SPONSOR_RE.search(sentence):
-                cautions.append(f"{label} mentioned but not restrictive: \"{sentence[:160]}\"")
+                caution(f"{label} mentioned but not restrictive: \"{sentence[:160]}\"")
                 continue
             if mode == "requirement":
                 window = _sentence_around(full_text, m.start(), m.end(), following=1)
                 if not REQUIREMENT_SENTENCE_RE.search(window):
-                    cautions.append(f"{label} mentioned as compliance boilerplate, not a requirement: \"{window[:200]}\"")
+                    caution(f"{label} mentioned as compliance boilerplate, not a requirement: \"{window[:200]}\"")
                     continue
                 if CONDITIONAL_RE.search(window):
-                    cautions.append(f"{label} is conditional (license / case-by-case), read before applying: \"{window[:200]}\"")
+                    caution(f"{label} is conditional (license / case-by-case), read before applying: \"{window[:200]}\"")
                     continue
             start, end = max(0, m.start() - 120), min(len(full_text), m.end() + 120)
             snippet = " ".join(full_text[start:end].split())
@@ -456,7 +460,7 @@ def rank_batch(jobs: list[dict], cfg: dict, tax: ke.Taxonomy, seen: ledger.Seen)
     sc = cfg["scoring"]
     out = []
     for job in jobs:
-        row = {**job, "recommended_resume": "Resume_Master", "gate0_passed": False, "caution_notes": []}
+        row = {**job, "gate0_passed": False, "caution_notes": []}
         why_seen = seen.match(job) if job.get("pass_num") != 0 and not job.get("carried_from") else ""
         if why_seen:
             out.append({**row, "score": 0, "sub_scores": {}, "bucket": "Drop", "lane": "Drop",
@@ -717,6 +721,11 @@ def run_self_test() -> int:
     check("one foreign body cue does not gate", g(description="Profiel: " + jd_ok)[0])
     check("foreign title word gates on its own", not g(title="Ingénieur Qualité", description=jd_ok)[0])
     check("accepted language is not gated", check_eligibility_gate(job(title="Ingénieur Qualité"), build_cfg({**_test_profile(), "candidate": {"languages": ["english", "french"]}}))[0])
+    check("same caution never listed twice",
+          len(check_eligibility_gate(job(description="Export control regulations (ITAR/EAR) may apply to this role. "
+                                                     "ITAR and EAR compliance is part of our onboarding."), cfg)[3])
+          == len(set(check_eligibility_gate(job(description="Export control regulations (ITAR/EAR) may apply to this role. "
+                                                            "ITAR and EAR compliance is part of our onboarding."), cfg)[3])))
     check("export-control boilerplate is CAUTION not gate (R5)", g(description="Comply with export control laws. " + jd_ok)[0])
     check("export-control requirement gates", not g(description="Must be a U.S. person to access export controlled technology. " + jd_ok)[0])
     check("requirement in the NEXT sentence still gates", not g(description="Work involves ITAR data. Applicants must be U.S. persons. " + jd_ok)[0])
