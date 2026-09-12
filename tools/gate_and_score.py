@@ -992,12 +992,14 @@ def main():
 
         f.write("\n\n### 📂 Shortlist Breakdown by Search Pass\n\n")
         pass_names = {
-            "Pass 1": "Pass 1: Core Anchors & Aerospace/Composites Quality (US)",
-            "Pass 2": "Pass 2: Semiconductor Fab & CleanTech/EV Sponsors (US)",
-            "Pass 3": "Pass 3: Open Quality/Process Engineering & Technicians (US)",
-            "Pass 4": "Pass 4: Curated International (Europe + Australia)"
+            "Pass 0": "Pass 0: your hand-found postings",
+            "Pass 1": "Pass 1: company career sites (ATS, free)",
+            "Pass 2": "Pass 2: LinkedIn, target companies",
+            "Pass 3": "Pass 3: LinkedIn, all domains",
+            "Pass 4": "Pass 4: LinkedIn, contract / technician / intern / co-op",
+            "Pass 5": "Pass 5: LinkedIn, international",
         }
-        for p_key in ["Pass 1", "Pass 2", "Pass 3", "Pass 4"]:
+        for p_key in pass_names:
             p_jobs = [j for j in shortlisted if j.get("pass") == p_key]
             f.write(f"#### {pass_names.get(p_key, p_key)} ({len(p_jobs)} roles)\n\n")
             if not p_jobs:

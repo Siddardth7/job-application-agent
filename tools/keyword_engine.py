@@ -379,8 +379,13 @@ def run_audit() -> int:
 
 # ── Self-test ───────────────────────────────────────────────────────────────
 
+TEST_TAXONOMY = ROOT_DIR / "tests" / "fixtures" / "taxonomy_test.json"
+
+
 def run_self_test() -> int:
-    tax = Taxonomy.load()
+    # The synthetic fixture, never the user's real catalog: the assertions below
+    # encode a fixed evidence graph, and CI has no personal taxonomy at all.
+    tax = Taxonomy.load(TEST_TAXONOMY)
     failures = []
 
     def check(name, actual, expected):

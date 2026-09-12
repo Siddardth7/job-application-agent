@@ -54,6 +54,7 @@ export function mapJob(job, providerId) {
     postedAtEpoch: epoch,
     seniorityLevel: '',
     description: job.description || '',
+    reqId: job.reqId || '',
     source: `ats:${providerId}`,
   };
 }
@@ -149,6 +150,8 @@ async function run(configPath, sinceDaysOverride) {
 
   const all = perPortal.flat();
   await enrichGreenhouseDescriptions(all, portals, ctx);
+  await enrichWorkdayDescriptions(all, portals);
+  await enrichSmartRecruitersDescriptions(all, portals);
   console.error(`ats_scan: ${all.length} rows from ${portals.length} portals`);
   process.stdout.write(JSON.stringify(all, null, 2) + '\n');
 }
@@ -194,6 +197,96 @@ async function enrichGreenhouseDescriptions(rows, portals, ctx) {
     }
   });
   if (filled) console.error(`  greenhouse: filled ${filled} descriptions via ?content=true`);
+}
+
+const UA = 'Mozilla/5.0 (compatible; JobSearchPipeline/1.0)';
+
+/** Pure: pick the fields we keep from a Workday CXS job-detail response. */
+export function parseWorkdayDetail(json) {
+  const info = json?.jobPostingInfo || {};
+  return {
+    description: decodeGreenhouseContent(info.jobDescription || ''),
+    reqId: info.jobReqId || '',
+    postedAt: typeof info.startDate === 'string' ? info.startDate.slice(0, 10) : '',
+  };
+}
+
+/**
+ * Fill in `description` + `reqId` for Workday rows (audit R2).
+ *
+ * The listing endpoint carries no description. The per-job detail endpoint
+ * `/wday/cxs/<tenant>/<site><externalPath>` does, but answers 403 without a
+ * session cookie — one GET of the careers page per tenant provides it. One
+ * request per job, only for rows that already passed the title/location/date
+ * filters, so a 2,000-posting tenant costs a handful of calls, not thousands.
+ */
+async function enrichWorkdayDescriptions(rows, portals) {
+  const tenants = portals.filter(p => p.provider === 'workday' && p.careers_url);
+  let filled = 0;
+  await mapPool(tenants, CONCURRENCY, async (entry) => {
+    const m = String(entry.careers_url).match(/^https:\/\/([\w-]+)\.(wd[\w-]*)\.myworkdayjobs\.com\/(?:[a-z]{2}-[A-Z]{2}\/)?([^/?#]+)/);
+    if (!m) return;
+    const [, tenant, instance, site] = m;
+    const origin = `https://${tenant}.${instance}.myworkdayjobs.com`;
+    const jobBase = `${origin}/${site}`;
+    const mine = rows.filter(r => !r.description && r.link.startsWith(jobBase + '/job/'));
+    if (mine.length === 0) return;
+    try {
+      const first = await fetch(entry.careers_url, { headers: { 'user-agent': UA }, redirect: 'follow' });
+      const cookies = (first.headers.getSetCookie?.() || []).map(c => c.split(';')[0]).join('; ');
+      await mapPool(mine, CONCURRENCY, async (r) => {
+        try {
+          const detail = `${origin}/wday/cxs/${tenant}/${site}${r.link.slice(jobBase.length)}`;
+          const res = await fetch(detail, { headers: { 'user-agent': UA, accept: 'application/json', cookie: cookies } });
+          if (!res.ok) return;
+          const d = parseWorkdayDetail(await res.json());
+          if (d.description) { r.description = d.description; filled++; }
+          if (d.reqId) r.reqId = d.reqId;
+          if (!r.postedAt && d.postedAt) r.postedAt = d.postedAt;
+        } catch { /* a row without a description is still a lead */ }
+      });
+    } catch (err) {
+      console.error(`  ⚠️  ${entry.name} [workday detail]: ${err.message}`);
+    }
+  });
+  if (filled) console.error(`  workday: filled ${filled} descriptions via job detail`);
+}
+
+/** Pure: flatten a SmartRecruiters posting-detail response. */
+export function parseSmartRecruitersDetail(json) {
+  const s = json?.jobAd?.sections || {};
+  const text = ['jobDescription', 'qualifications', 'additionalInformation']
+    .map(k => s[k]?.text || '').filter(Boolean).join('\n\n');
+  return {
+    description: decodeGreenhouseContent(text),
+    reqId: json?.refNumber || '',
+    postedAt: typeof json?.releasedDate === 'string' ? json.releasedDate.slice(0, 10) : '',
+  };
+}
+
+/** Fill in `description` + `reqId` for SmartRecruiters rows via the public posting-detail API. */
+async function enrichSmartRecruitersDescriptions(rows, portals) {
+  const boards = portals.filter(p => p.provider === 'smartrecruiters' && p.careers_url);
+  let filled = 0;
+  await mapPool(boards, CONCURRENCY, async (entry) => {
+    let slug;
+    try { slug = new URL(entry.careers_url).pathname.split('/').filter(Boolean)[0]; } catch { return; }
+    if (!slug) return;
+    const mine = rows.filter(r => !r.description && /smartrecruiters\.com\/[^/]+\/(?:postings\/)?\d+/.test(r.link));
+    await mapPool(mine, CONCURRENCY, async (r) => {
+      const id = (r.link.match(/(\d{6,})/) || [])[1];
+      if (!id) return;
+      try {
+        const res = await fetch(`https://api.smartrecruiters.com/v1/companies/${slug}/postings/${id}`, { headers: { 'user-agent': UA } });
+        if (!res.ok) return;
+        const d = parseSmartRecruitersDetail(await res.json());
+        if (d.description) { r.description = d.description; filled++; }
+        if (d.reqId) r.reqId = d.reqId;
+        if (!r.postedAt && d.postedAt) r.postedAt = d.postedAt;
+      } catch { /* leave the row as a lead without a description */ }
+    });
+  });
+  if (filled) console.error(`  smartrecruiters: filled ${filled} descriptions via posting detail`);
 }
 
 /** Greenhouse returns HTML-escaped markup; the gates and keyword engine want text. */
@@ -242,6 +335,12 @@ function selfTest() {
   check('fresh: recent passes', isFresh({ postedAtEpoch: now }, now - 86_400_000) === true);
   check('fresh: stale fails', isFresh({ postedAtEpoch: now - 5 * 86_400_000 }, now - 3 * 86_400_000) === false);
   check('fresh: no window → pass', isFresh({ postedAtEpoch: now - 999 * 86_400_000 }, null) === true);
+
+  const wd = parseWorkdayDetail({ jobPostingInfo: { jobDescription: '<p>Do <b>SPC</b></p><ul><li>GD&amp;T</li></ul>', jobReqId: 'JR-1', startDate: '2026-09-11' } });
+  check('workday detail: description text', wd.description.includes('Do SPC') && wd.description.includes('- GD&T'));
+  check('workday detail: reqId + date', wd.reqId === 'JR-1' && wd.postedAt === '2026-09-11');
+  const sr = parseSmartRecruitersDetail({ refNumber: 'REF1', releasedDate: '2026-09-10T00:00:00Z', jobAd: { sections: { jobDescription: { text: '<p>A</p>' }, qualifications: { text: '<p>B</p>' } } } });
+  check('smartrecruiters detail: sections joined', sr.description === 'A\n\nB' && sr.reqId === 'REF1' && sr.postedAt === '2026-09-10');
 
   console.error(`ats_scan self-test: ${pass}/${total} passed`);
   process.exit(pass === total ? 0 : 1);

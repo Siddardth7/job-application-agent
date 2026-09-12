@@ -1,0 +1,15 @@
+{
+  "_doc": "Offline fixture for `python3 tools/fetch_jobs.py --dry-run`. Apify-shaped rows under `linkedin`, ats_scan-shaped rows under `ats`. Synthetic, no real employers.",
+  "ats": [
+    {"title": "Quality Engineer I", "companyName": "Northwind Aero", "location": "Indianapolis, IN", "link": "https://northwind.wd5.myworkdayjobs.com/Careers/job/Indianapolis-IN/Quality-Engineer-I_JR-100001", "applyUrl": "https://northwind.wd5.myworkdayjobs.com/Careers/job/Indianapolis-IN/Quality-Engineer-I_JR-100001", "postedAt": "2026-09-10", "seniorityLevel": "", "description": "Requirements\n- SPC and PFMEA\n- GD&T\nRequisition ID: JR-100001", "reqId": "JR-100001", "source": "ats:workday"},
+    {"title": "Supplier Quality Engineer", "companyName": "Northwind Aero", "location": "Manchester, England", "link": "https://northwind.wd5.myworkdayjobs.com/Careers/job/Manchester/SQE_JR-100002", "applyUrl": "https://northwind.wd5.myworkdayjobs.com/Careers/job/Manchester/SQE_JR-100002", "postedAt": "2026-09-10", "seniorityLevel": "", "description": "", "reqId": "JR-100002", "source": "ats:workday"},
+    {"title": "Process Engineer", "companyName": "Contoso Cells", "location": "Reno, NV", "link": "https://boards.greenhouse.io/contoso/jobs/7000001", "applyUrl": "https://boards.greenhouse.io/contoso/jobs/7000001", "postedAt": "2026-09-09", "seniorityLevel": "", "description": "", "reqId": "", "source": "ats:greenhouse"}
+  ],
+  "linkedin": [
+    {"title": "Quality Engineer", "companyName": "Fabrikam Motors", "location": "Boston, New England", "postedAt": "2026-09-10", "seniorityLevel": "Entry level", "link": "https://www.linkedin.com/jobs/view/4457000001", "applyUrl": "https://www.linkedin.com/jobs/view/4457000001", "descriptionText": "What you'll bring\n- SPC, MSA, control plans\n- 8D problem solving"},
+    {"title": "Quality Engineer", "companyName": "Fabrikam Motors", "location": "Austin, TX", "postedAt": "2026-09-10", "seniorityLevel": "Entry level", "link": "https://www.linkedin.com/jobs/view/4457000002", "applyUrl": "https://www.linkedin.com/jobs/view/4457000002", "descriptionText": "What you'll bring\n- SPC, MSA, control plans\n- 8D problem solving"},
+    {"title": "Manufacturing Engineer", "companyName": "Tailspin Toys", "location": "Pune, India", "postedAt": "2026-09-10", "seniorityLevel": "", "link": "https://www.linkedin.com/jobs/view/4457000003", "applyUrl": "https://www.linkedin.com/jobs/view/4457000003", "descriptionText": "Requirements: 2 years"},
+    {"title": "Quality Technician", "companyName": "Contoso Cells", "location": "Reno, NV", "postedAt": "2026-08-01", "seniorityLevel": "", "link": "https://www.linkedin.com/jobs/view/4300000004", "applyUrl": "https://www.linkedin.com/jobs/view/4300000004", "descriptionText": "This role has been reposted. CMM inspection."},
+    {"title": "Process Engineer", "companyName": "Contoso Cells", "location": "Reno, NV", "postedAt": "2026-09-09", "seniorityLevel": "", "link": "https://www.linkedin.com/jobs/view/4457000005", "applyUrl": "https://www.linkedin.com/jobs/view/4457000005", "descriptionText": "Requirements\n- Cleanroom\n- SPC\nJob ID: 7000001"}
+  ]
+}
