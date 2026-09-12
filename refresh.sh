@@ -13,3 +13,6 @@ set -euo pipefail
 cd "$(dirname "$0")"
 [ -f .env ] && set -a && . ./.env && set +a
 python3 refresh.py "$@"
+# The tracker has no push API on ChatGPT Sites: job_tracker.html is the page, upload it by hand.
+# Set TRACKER_SITE_URL in .env so this reminder names the live page.
+[ -n "${TRACKER_SITE_URL:-}" ] && echo "Live tracker page: $TRACKER_SITE_URL — upload ./job_tracker.html there to update it (no API)." || true

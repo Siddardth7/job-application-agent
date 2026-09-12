@@ -55,21 +55,28 @@ years required vs `candidate.max_years`) + **Logistics 5** (fresh, direct employ
   `.pipeline/ranked_summary.json` (decisions only, what the ranker skill reads).
 - 🧑 **GATE A**: you review the Apply table, promote Reserve/Unverified rows by number, and name the rows to tailor.
 
-### Stage 3: Customize & Verify (`python3 tools/customise_resume.py`)
-- Full Drafter-Reviewer Agent architecture grounded against `data/candidate_resume_database.json`.
-- Dynamically tailors `Skills`, semantically reframes `Experience` bullets using JD-aligned action verbs & priority keywords, and retains all 3 project case studies.
-- Compiles `.tex` and executes `tools/verify_pdf.py` (syntax check, clean compilation, strict 1-page PDF).
-- **Directory Hierarchy**:
-  - Saved under `Job_Applications_Resumes/<Month>/<YYYY-MM-DD>/` (e.g. `September/2026-09-01/`).
-  - `Apply/`: Holds **strictly the approved tailored PDFs** for direct user submission (zero clutter).
-  - `Archive/`: Holds all LaTeX `.tex` sources (under `src/`), compilation `.log`, `.aux`, `.out` files, and intermediate build assets.
-- **Handoff**: `Job_Applications_Resumes/<Month>/<YYYY-MM-DD>/Apply/` and `.pipeline/tailored.md`.
+### Stage 3: Customise & Verify (the `customiser` subagent — `.claude/agents/customiser.md`)
+- One resume per Gate-A-approved row, tailored **inline, one at a time**, from the single master
+  `Resume/Final_Resumes/Resume_Master.tex` (`\ifcase\ResumeType` 0–5 picks the track's Skills block).
+  JD text comes from `.pipeline/ranked.json` (`description`); there are no per-job JD files.
+- Rules: `playbook/P1_03_resume_customization_rules.md`. Tailoring reorders Skills, bullets and
+  projects and rewords for emphasis; it never renames an entry, adds a method, or invents a fact.
+  **The master template wins over the playbook inventory on names, links and dates.**
+- Every output passes the agent's hard self-check gate (diff vs the resolved track base via
+  `tools/resolve_track.py`, unique md5, no company name, employer headers unchanged, LaTeX-safety,
+  `pdflatex` → exactly 1 page, 0 bad boxes, no adjacent/gap keyword in a reworded bullet).
+- **Output layout**: `Job_Applications_Resumes/<YYYY-MM-DD>/resume_{Company}_{ShortRole}.pdf`
+  (what you submit) and `Job_Applications_Resumes/<YYYY-MM-DD>/src/*.tex`. No `.aux/.log/.out` kept.
+- **Handoff**: `.pipeline/tailored.md` (job → resume map + 3-line change summaries + gate results).
+  `.pipeline/tailored.json` (what Stage 4 reads) is an open contract — see `docs/audits/` item 1.
 
 ### Stage 4: Supabase Sync & Artifact Rebuild (`python3 tools/log_and_refresh.py`)
 - Inserts application records to Supabase `applications` table (two-track: **T1 Broad-Fit / T2 Curated Target** — T3 is retired).
 - **Persists the 1-click recruiter + team-lead LinkedIn people-search links to the Supabase `contacts` table** — the source-of-truth "contacts place" — keyed to each new `job_id` (recruiter → persona `RECRUITER`, team lead → persona `SENIOR_MANAGER`). This happens automatically here; no separate step needed. See **Source Contacts Place** below.
 - Appends new URLs to `seen_jobs.csv`.
-- Executes `./refresh.sh --fetch` (MANDATORY: pulls live database state to rebuild `job_tracker.html` and deploy Cowork `index.html`).
+- Builds `.pipeline/tailored.json` itself from the customiser's `tailored.md` table + `ranked.json` (no stage writes it by hand).
+- Executes `./refresh.sh --fetch` (MANDATORY: pulls live database state to rebuild `job_tracker.html`, the Cowork `index.html` mirror, and `job_tracker.artifact.html`).
+- **Deploy target:** the live tracker is the ChatGPT Sites page in `TRACKER_SITE_URL` (`.env`). It has no push API — after the rebuild, **upload `job_tracker.html` to it by hand**; `refresh.sh` prints the reminder. Supabase stays the source of truth; the HTML is a view.
 - Exports high-score networking sheet via `python3 networking_sheet.py export --date <today>` if qualifying roles exist.
 - 🧑 **GATE B**: you receives the verified PDFs and apply links to submit directly.
 

@@ -14,8 +14,9 @@ before every run. They override `.claude/**`, `ANTIGRAVITY_APPLY_RUN.md`, `READM
 2. Run Stage 2 through `ranker` or `tools/gate_and_score.py`. Enforce Gate 0 and at most two roles per
    employer per day. Require `.pipeline/ranked.{json,md}`.
 3. Present the shortlist and stop at **Gate A**. Do not customize until Sid approves specific rows.
-4. Run Stage 3 through `customiser` or `tools/customise_resume.py` only for approved rows. Verify every
-   PDF with `tools/verify_pdf.py`. Require `.pipeline/tailored.{json,md}` and the monthly/date layout.
+4. Run Stage 3 through the `customiser` agent only for approved rows. Its hard self-check gate
+   (diff vs `tools/resolve_track.py` base, 1 page, 0 bad boxes) must pass. Require `.pipeline/tailored.md`
+   and `Job_Applications_Resumes/<YYYY-MM-DD>/{*.pdf,src/*.tex}`.
 5. Run Stage 4 with `tools/log_and_refresh.py` only after Stage 3 succeeds. Require
    `./refresh.sh --fetch`.
 6. Stop at **Gate B** with exact PDF paths and job links. Sid submits and sends all outreach.

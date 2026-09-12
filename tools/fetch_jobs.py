@@ -171,6 +171,22 @@ def run_apify(urls: list[str], cap_usd: float, per_url: int, token: str) -> tupl
         return [], f"Apify call failed: {e}"
 
 
+def apify_last_run_usd(token: str) -> float | None:
+    """Dollars Apify actually charged for the actor's most recent run (the one
+    run_apify just finished). The sync endpoint returns only dataset items, so
+    this is a second, free GET. None if it cannot be read — never raises."""
+    if not token:
+        return None
+    try:
+        req = urllib.request.Request(f"https://api.apify.com/v2/acts/{ACTOR_ID}/runs/last?token={token}",
+                                     headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8")).get("data") or {}
+        return round(float(data.get("usageTotalUsd")), 4) if data.get("usageTotalUsd") is not None else None
+    except Exception:
+        return None
+
+
 def fetch_linkedin_guest(url: str) -> dict | None:
     """A single pasted LinkedIn job URL via the public guest endpoint (no login)."""
     jid = ledger.job_id_from_url(url)
@@ -390,22 +406,24 @@ def main(argv: list[str]) -> int:
     report: list[dict] = []
     skipped_portals: list[str] = []
 
-    def record(n, status, raw, reason="", cap=None):
+    def record(n, status, raw, reason="", cap=None, spend=None):
         report.append({"pass": n, "label": PASS_LABELS[n], "status": status, "raw": raw,
-                       "reason": reason, "cap_usd": cap, "days": pass_days(n) if n else None})
-        print(f"  {PASS_LABELS[n]}: {status} ({raw} raw){' — ' + reason if reason else ''}")
+                       "reason": reason, "cap_usd": cap, "spend_usd": spend, "days": pass_days(n) if n else None})
+        spent = f", ${spend:.2f} spent" if spend is not None else ""
+        print(f"  {PASS_LABELS[n]}: {status} ({raw} raw{spent}){' — ' + reason if reason else ''}")
 
     def apify_pass(n, urls, per_url):
         if args["ats_only"]:
             record(n, "skipped", 0, "--ats-only", pass_cap(n))
             return
         if args["dry_run"]:
-            rows, err = list(fixture["linkedin"]), ""
+            rows, err, spend = list(fixture["linkedin"]), "", None
         else:
             rows, err = run_apify(urls, pass_cap(n), per_url, token)
+            spend = apify_last_run_usd(token)
         src = "linkedin_apify_intl" if n == 5 else f"linkedin_apify_p{n}"
         raw_jobs.extend(normalize_job(r, src, n) for r in rows)
-        record(n, "failed" if err else "ok", len(rows), err, pass_cap(n))
+        record(n, "failed" if err else "ok", len(rows), err, pass_cap(n), spend)
 
     for n in args["passes"]:
         if n == 0:
@@ -479,11 +497,16 @@ def write_fetched_md(survivors: list[dict], rep: dict) -> None:
     L = [f"# Fetched Postings — {today}{' (DRY RUN)' if rep['dry_run'] else ''}\n",
          f"**{rep['raw_total']} raw rows across {len(rep['passes'])} passes → {rep['survivors']} new postings for the ranker.**\n",
          "## How each pass went\n",
-         "| Pass | Status | Window | Raw | Kept | Apify cap | Note |", "|---|---|---|---:|---:|---|---|"]
+         "| Pass | Status | Window | Raw | Kept | Apify spent / cap | Note |", "|---|---|---|---:|---:|---|---|"]
     for p in rep["passes"]:
         status = {"ok": "✅ ok", "failed": "❌ FAILED", "skipped": "⏭ skipped"}[p["status"]]
         cap = f"${p['cap_usd']:.2f}" if p["cap_usd"] else "free"
+        if p["cap_usd"]:
+            cap = (f"${p['spend_usd']:.2f} / " if p.get("spend_usd") is not None else "? / ") + cap
         L.append(f"| {p['label']} | {status} | {str(p['days']) + 'd' if p['days'] else '—'} | {p['raw']} | {p['kept']} | {cap} | {p['reason']} |")
+    spent = [p["spend_usd"] for p in rep["passes"] if p.get("spend_usd") is not None]
+    if spent:
+        L.append(f"\n**Apify spend this run: ${sum(spent):.2f}** (read back from each run's usage; the cap is what it could not exceed).\n")
     d = rep["drops"]
     L.append(f"\nDropped before the ranker: {d['reposted']} reposted · {d['geo_blocked']} outside the US (non-international passes) · "
              f"{d['already_seen']} already in the seen ledger · {d['duplicate_in_run']} duplicate URL/requisition · "

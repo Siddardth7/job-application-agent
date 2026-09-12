@@ -208,6 +208,10 @@ def check_eligibility_gate(job: dict, cfg: dict) -> tuple[bool, str, str, list[s
     full_text = f"{job.get('title', '')} {job.get('company', '')} {job.get('description', '') or ''}"
     cautions: list[str] = []
 
+    def caution(note: str) -> None:
+        if note not in cautions:   # overlapping patterns can hit the same sentence twice
+            cautions.append(note)
+
     if cand["needs_sponsorship"]:
         for co, reason in cfg["known_non_sponsors"].items():
             if co and word_match(co, company_lower):
@@ -218,15 +222,15 @@ def check_eligibility_gate(job: dict, cfg: dict) -> tuple[bool, str, str, list[s
                 continue
             sentence = _sentence_around(full_text, m.start(), m.end())
             if mode == "rescuable" and POSITIVE_SPONSOR_RE.search(sentence):
-                cautions.append(f"{label} mentioned but not restrictive: \"{sentence[:160]}\"")
+                caution(f"{label} mentioned but not restrictive: \"{sentence[:160]}\"")
                 continue
             if mode == "requirement":
                 window = _sentence_around(full_text, m.start(), m.end(), following=1)
                 if not REQUIREMENT_SENTENCE_RE.search(window):
-                    cautions.append(f"{label} mentioned as compliance boilerplate, not a requirement: \"{window[:200]}\"")
+                    caution(f"{label} mentioned as compliance boilerplate, not a requirement: \"{window[:200]}\"")
                     continue
                 if CONDITIONAL_RE.search(window):
-                    cautions.append(f"{label} is conditional (license / case-by-case), read before applying: \"{window[:200]}\"")
+                    caution(f"{label} is conditional (license / case-by-case), read before applying: \"{window[:200]}\"")
                     continue
             start, end = max(0, m.start() - 120), min(len(full_text), m.end() + 120)
             snippet = " ".join(full_text[start:end].split())
@@ -312,17 +316,34 @@ def score_sponsorship(job: dict, text: str, cfg: dict, is_intl: bool) -> tuple[i
 
 # ── Domain ──────────────────────────────────────────────────────────────────
 
+ANCHOR_HITS = 3  # ponytail: one anchor-company match outweighs three generic cue words
+
+
 def score_domain(text: str, cfg: dict) -> tuple[int, str]:
-    """First matching domain in the profile's ordered list wins; points fall linearly to the floor."""
+    """
+    The domain with the MOST cue hits wins; ties go to profile order. A hit on one
+    of the domain's anchor companies counts as ANCHOR_HITS, so "Lucid Motors" stays
+    CleanTech/EV even when the JD says "automotive" and "industrial" more often.
+    Points fall linearly from the first-listed domain to the floor.
+
+    Was: first domain in list order with ANY hit. A pharma JD whose boilerplate
+    industry list said "aerospace" once was labelled Aerospace over a Precision/
+    Regulated domain that matched twice (audit 2026-09-12, United Pharma row).
+    """
     w, floor = cfg["scoring"]["weights"]["domain"], cfg["scoring"]["domain_floor"]
     domains = cfg["domains"]
     n = len(domains)
+    best, best_hits = None, 0
     for i, d in enumerate(domains):
-        cues = (d.get("cues") or []) + (d.get("title_keywords") or []) + (d.get("company_keywords") or [])
-        if any(word_match(c, text) for c in cues if c):
-            pts = w if n <= 1 else round(w - (w - floor) * i / (n - 1))
-            return pts, d["name"]
-    return floor, cfg["default_domain"]
+        cues = (d.get("cues") or []) + (d.get("title_keywords") or [])
+        hits = sum(1 for c in cues if c and word_match(c, text))
+        hits += ANCHOR_HITS * sum(1 for c in (d.get("company_keywords") or []) if c and word_match(c, text))
+        if hits > best_hits:
+            best, best_hits = i, hits
+    if best is None:
+        return floor, cfg["default_domain"]
+    pts = w if n <= 1 else round(w - (w - floor) * best / (n - 1))
+    return pts, domains[best]["name"]
 
 
 # ── Role fit ────────────────────────────────────────────────────────────────
@@ -439,7 +460,7 @@ def rank_batch(jobs: list[dict], cfg: dict, tax: ke.Taxonomy, seen: ledger.Seen)
     sc = cfg["scoring"]
     out = []
     for job in jobs:
-        row = {**job, "recommended_resume": "Resume_Master", "gate0_passed": False, "caution_notes": []}
+        row = {**job, "gate0_passed": False, "caution_notes": []}
         why_seen = seen.match(job) if job.get("pass_num") != 0 and not job.get("carried_from") else ""
         if why_seen:
             out.append({**row, "score": 0, "sub_scores": {}, "bucket": "Drop", "lane": "Drop",
@@ -700,6 +721,11 @@ def run_self_test() -> int:
     check("one foreign body cue does not gate", g(description="Profiel: " + jd_ok)[0])
     check("foreign title word gates on its own", not g(title="Ingénieur Qualité", description=jd_ok)[0])
     check("accepted language is not gated", check_eligibility_gate(job(title="Ingénieur Qualité"), build_cfg({**_test_profile(), "candidate": {"languages": ["english", "french"]}}))[0])
+    check("same caution never listed twice",
+          len(check_eligibility_gate(job(description="Export control regulations (ITAR/EAR) may apply to this role. "
+                                                     "ITAR and EAR compliance is part of our onboarding."), cfg)[3])
+          == len(set(check_eligibility_gate(job(description="Export control regulations (ITAR/EAR) may apply to this role. "
+                                                            "ITAR and EAR compliance is part of our onboarding."), cfg)[3])))
     check("export-control boilerplate is CAUTION not gate (R5)", g(description="Comply with export control laws. " + jd_ok)[0])
     check("export-control requirement gates", not g(description="Must be a U.S. person to access export controlled technology. " + jd_ok)[0])
     check("requirement in the NEXT sentence still gates", not g(description="Work involves ITAR data. Applicants must be U.S. persons. " + jd_ok)[0])
@@ -731,6 +757,11 @@ def run_self_test() -> int:
     check("first domain scores full", score_domain("composites work", cfg)[0] == 15)
     check("last domain scores the floor", score_domain("automotive plant", cfg)[0] == 3)
     check("unmatched is the floor + default label", score_domain("nothing here", cfg) == (3, "General"))
+    check("most cue hits wins over list order",
+          score_domain("aerospace mentioned once; wafer and semiconductor twice", cfg)[1] == "Semi")
+    check("tie goes to list order", score_domain("aerospace and automotive", cfg)[1] == "Aero")
+    check("anchor company beats generic cues",
+          score_domain("northwind plant: automotive automotive", cfg)[1] == "Aero")
 
     print("\nbuckets and shortlist")
     batch = [job(link=f"https://x/{i}", company=f"Co{i}") for i in range(5)]

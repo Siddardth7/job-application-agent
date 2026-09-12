@@ -25,9 +25,9 @@ case "$STAGE" in
     python3 tools/gate_and_score.py
     ;;
   customize)
-    echo "=== STEP 3: CUSTOMIZING RESUMES & COMPILING PDFS ==="
-    shift 1 || true
-    python3 tools/customise_resume.py "$@"
+    echo "Stage 3 is the customiser subagent, not a script: run /apply-run (or /customise for one role)."
+    echo "It writes Job_Applications_Resumes/<today>/ and .pipeline/tailored.md."
+    exit 1
     ;;
   sync)
     echo "=== STEP 4: SUPABASE SYNC & TRACKER REBUILD ==="
@@ -44,8 +44,7 @@ case "$STAGE" in
     python3 tools/gate_and_score.py
     echo ""
     echo "🧑 GATE A: Review .pipeline/ranked.md shortlist."
-    echo "To customize specific indices: ./tools/daily_run.sh customize 1 2 3"
-    echo "To customize all approved:     ./tools/daily_run.sh customize"
+    echo "Then run /apply-run (customiser subagent) for the rows you approve."
     ;;
   usage)
     python3 tools/check_usage.py
