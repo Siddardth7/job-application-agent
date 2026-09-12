@@ -2,18 +2,22 @@
 """
 refresh.py — generate the standalone Job Search Tracker page (job_tracker.html).
 
-ONE page, ONE database, NO artifact. The page is a plain HTML file you bookmark. Every
-time you open it, it reads the `applications` and `contacts` tables straight from
-Supabase over REST and writes status / note / outreach edits straight back. Nothing is
-baked into the file except your Supabase project URL, so:
+ONE page, ONE table, NO artifact. The page is a plain HTML file you bookmark. Every time
+you open it, it reads the `applications` table straight from Supabase over REST and
+writes status / note edits straight back. Nothing is baked into the file except your
+Supabase project URL, so:
 
-  * the file never goes stale — the daily run only has to write to Supabase;
+  * the file never goes stale — the daily run only has to write rows to Supabase;
   * the same file works whether the run came from Claude Code, Codex, Antigravity, or
     a shell script — they all just write rows;
   * the Supabase key is NOT in the file. The page asks for it once and keeps it in the
     browser's localStorage, so the file is safe to copy, share, or regenerate.
 
-Regenerate only when this template changes (or run it any time — it is idempotent):
+It is a pure job-application tracker: two tabs, Dashboard and Tracker. Networking is
+not tracked here — each row just carries the recruiter / team-lead LinkedIn searches,
+generated in the page from the company and role.
+
+Regenerate only when this template changes (it is idempotent):
 
   python3 refresh.py             # writes ./job_tracker.html
   python3 refresh.py --fetch     # also syncs tracker drop-notes into learning_log.md
@@ -22,7 +26,7 @@ Regenerate only when this template changes (or run it any time — it is idempot
 
 Key choice for the page: the service_role key bypasses RLS and just works. If you would
 rather use the anon/publishable key, add RLS policies granting anon select+update on
-both tables (see supabase/README.md).
+`applications` (see supabase/README.md).
 """
 import os, sys, json, argparse, urllib.request
 
@@ -41,10 +45,8 @@ def _load_dotenv():
 _load_dotenv()
 
 SUPABASE_URL = (os.environ.get("SUPABASE_URL") or "https://chsrkysjongzgdbwqhlu.supabase.co").rstrip("/")
+# Mirrors the app_status_t enum. A value here that is not in the enum fails the write with a 400.
 APP_STATUSES = ["referral-pending","pending","applied","dropped","expired","shortlisted","interviewing","offer","rejected"]
-# Mirrors the outreach_status_t enum in lifecycle order. A value here that is not in the
-# enum fails the write with a 400 — keep the two in sync.
-OUTREACH_STATUSES = ["sourced", "drafted", "sent", "not_accepted", "accepted", "replied", "positive", "meeting_scheduled", "negative", "referral_asked", "referral_secured", "no_response", "dropped"]
 DEFAULT_OUT = os.path.join(HERE, "job_tracker.html")
 
 # ------------------------------------------------------------------ server-side read
@@ -116,12 +118,13 @@ def _selftest():
     assert sync_drop_reviews_to_learning_log(apps, p) == 1               # change detected
     t = open(p).read()
     assert t.count(DROP_START) == 1 and "ITAR" in t and "no sponsorship" not in t, t
-    # The page bakes the project URL and the enums, never a key or any rows.
+    # The page bakes the project URL and the status enum, never a key or any rows.
     html = build_html()
     assert SUPABASE_URL in html and "__" not in html.split("<script>")[1][:200]
     key = os.environ.get("SUPABASE_KEY") or ""
     assert "eyJ" not in html and "sb_secret" not in html and (not key or key not in html), "a key leaked into the page"
-    assert json.dumps(APP_STATUSES) in html and json.dumps(OUTREACH_STATUSES) in html
+    assert json.dumps(APP_STATUSES) in html
+    assert "contacts" not in html.lower().split("<script>")[1], "networking crept back into the page"
     print("selftest OK")
 
 # ------------------------------------------------------------------ template
@@ -129,8 +132,7 @@ def build_html():
     return (TEMPLATE
         .replace("__CSS__", CSS)
         .replace("__SUPABASE_URL__", SUPABASE_URL)
-        .replace("__APP_STATUSES__", json.dumps(APP_STATUSES))
-        .replace("__OUTREACH_STATUSES__", json.dumps(OUTREACH_STATUSES)))
+        .replace("__APP_STATUSES__", json.dumps(APP_STATUSES)))
 
 def main():
     ap = argparse.ArgumentParser()
@@ -153,7 +155,7 @@ CSS = r"""
   --bg:#eef1ec; --panel:#ffffff; --panel-2:#f4f6f8;
   --ink:#0e1621; --muted:#3d4a57; --faint:#5d6b7a; --line:#d5dbe1;
   --edge:#0e1621; --accent:#0a66c2; --accent-soft:#e3f0fb; --accent-ink:#084b8f;
-  --referral:#0a66c2; --direct:#7c4d86; --staffing:#a06a1b; --outreach:#2f7a52; --drop:#7a848d;
+  --direct:#7c4d86; --staffing:#a06a1b; --drop:#7a848d;
   --due:#8a4b00; --pos:#1b6b3a; --neg:#a32a22; --danger:#b3261e; --danger-soft:#fbe7e5;
   --sans:'Inter','SF Pro Text',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
   --mono:ui-monospace,'SF Mono','JetBrains Mono',Menlo,Consolas,monospace;
@@ -172,24 +174,28 @@ header{background:var(--panel);border-bottom:2px solid var(--edge);padding:15px 
 .brand small{display:block;font-weight:700;color:var(--faint);font-size:12px;letter-spacing:.02em;margin-top:2px}
 .clock{font-size:12.5px;color:var(--muted);text-align:right;font-weight:600}
 .clock b{display:block;color:var(--ink);font-size:15px;font-weight:800}
-.badges{display:flex;gap:6px;margin-top:5px;justify-content:flex-end;flex-wrap:wrap}
+.badges{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;align-items:center}
 .livepill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:800;padding:2px 9px;border-radius:20px;border:1.5px solid;cursor:pointer}
 .livepill.on{color:#0c5b2e;background:#e2f2e8;border-color:#1b6b3a}
 .livepill.off{color:#7a5c16;background:#f7efdb;border-color:#a06a1b}
 .livepill .dot{width:7px;height:7px;border-radius:50%}
 .livepill.on .dot{background:#1b6b3a}.livepill.off .dot{background:#a06a1b}
+.reload{font-size:11.5px;font-weight:800;padding:2px 10px;border-radius:20px;border:1.5px solid var(--edge);background:#fff;cursor:pointer;color:var(--ink);font-family:inherit}
+.reload:hover{background:var(--accent-soft)}
 .tabs{display:flex;gap:8px;margin-top:15px;flex-wrap:wrap}
 .tab{font-size:13.5px;font-weight:800;padding:9px 18px;border:2px solid var(--edge);background:#fff;border-radius:7px;cursor:pointer;color:var(--ink)}
 .tab:hover{box-shadow:var(--shadow-sm)}
 .tab[aria-selected="true"]{background:var(--accent);color:#fff;box-shadow:var(--shadow-sm)}
 main{max-width:1280px;margin:0 auto;padding:20px 22px 60px}
 .panel{display:none} .panel.active{display:block}
+body:has(#tracker.active){overflow:hidden}
+body:has(#tracker.active) main{max-width:none;width:100%;padding:14px 12px 0}
+body:has(#tracker.active) footer{display:none}
 .srcnote{background:var(--panel);border:2px solid var(--edge);border-radius:var(--r);box-shadow:var(--shadow-sm);padding:11px 15px;color:var(--muted);font-size:13px;font-weight:500;margin-bottom:16px}
 .srcnote b{color:var(--ink)}
 .srcnote input{padding:8px 10px;border:2px solid var(--edge);border-radius:6px;font-family:var(--mono);font-size:12px;min-width:320px;max-width:100%}
 .card{background:var(--panel);border:2px solid var(--edge);border-radius:var(--r);box-shadow:var(--shadow)}
 .kpis{display:block;margin-bottom:18px}
-.kpigroup{margin-bottom:13px}
 .kpigroup h4{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:0 0 7px 2px}
 .kpirow{display:grid;grid-template-columns:repeat(var(--cols),1fr);gap:11px}
 @media(max-width:900px){.kpirow{grid-template-columns:repeat(3,1fr)}}
@@ -217,63 +223,78 @@ main{max-width:1280px;margin:0 auto;padding:20px 22px 60px}
 .recent-date{font-size:12.5px;color:var(--faint);white-space:nowrap;font-weight:700;font-variant-numeric:tabular-nums}
 .recent-title{font-size:13.5px;flex:1;font-weight:600}
 .recent-n{font-size:12px;color:var(--muted);font-weight:700}
-.tbl-scroll{overflow-x:auto;border:2px solid var(--edge);border-radius:var(--r);background:var(--panel)}
-table{border-collapse:collapse;width:100%;font-size:13.5px}
-th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
-th{font-size:11.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--faint);font-weight:800;background:var(--panel-2);cursor:pointer;white-space:nowrap}
-th:hover{color:var(--ink)}
-tbody tr:hover{background:var(--panel-2)}
-tr.od{background:var(--danger-soft)} tr.od:hover{background:#f7dcd9}
-tr.xrow td{background:var(--panel-2);border-bottom:2px solid var(--edge)}
-.xbtn{cursor:pointer;font-weight:900;color:var(--accent-ink);user-select:none}
-.chip{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:20px;white-space:nowrap;border:1.5px solid transparent}
-.chip.referral{background:#dbeafe;color:var(--referral);border-color:#b6d3f5}
-.chip.direct-apply{background:#efe4f1;color:var(--direct);border-color:#ddc3e1}
-.chip.staffing{background:#f3e9d6;color:var(--staffing);border-color:#e6d3ab}
-.chip.t1{background:#e0edfb;color:#08417a;border-color:#bcd6f2}
-.chip.t2{background:#e9edf0;color:#3c4b57;border-color:#d0d8de}
-.chip.alum{background:#eee6fb;color:#5f36a8;border-color:#dbc9f2}
-.score-pill{font-weight:900;font-variant-numeric:tabular-nums}
-.score-pill.hi{color:var(--referral)}.score-pill.mid{color:var(--direct)}.score-pill.lo{color:var(--drop)}
 .stagepill{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:20px;text-transform:uppercase;border:1.5px solid var(--line);background:var(--panel-2);color:var(--muted);white-space:nowrap}
 .stagepill.st-applied,.stagepill.st-offer,.stagepill.st-shortlisted{background:#e2f2e8;color:var(--pos);border-color:#bce0c9}
-.stagepill.st-pending{background:#eaeef2;color:#3c4b57;border-color:#d0d8de}
+.stagepill.st-pending,.stagepill.st-referral-pending{background:#eaeef2;color:#3c4b57;border-color:#d0d8de}
 .stagepill.st-interviewing{background:#e3f0fb;color:var(--accent-ink);border-color:#b6d3f5}
 .stagepill.st-dropped,.stagepill.st-rejected,.stagepill.st-expired{background:#fbe4e2;color:var(--neg);border-color:#f0c4bf}
+.chip{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:20px;white-space:nowrap;border:1.5px solid transparent}
+.chip.direct-apply{background:#efe4f1;color:var(--direct);border-color:#ddc3e1}
+.chip.staffing{background:#f3e9d6;color:var(--staffing);border-color:#e6d3ab}
+.chip.referral,.chip.outreach{background:var(--accent-soft);color:var(--accent-ink);border-color:#b6d3f5}
+.chip.t1{background:#e0edfb;color:#08417a;border-color:#bcd6f2}
+.chip.t2{background:#e9edf0;color:#3c4b57;border-color:#d0d8de}
+.score-pill{font-weight:900;font-variant-numeric:tabular-nums}
+.score-pill.hi{color:var(--accent)}.score-pill.mid{color:var(--direct)}.score-pill.lo{color:var(--drop)}
 .od-tag{font-size:10px;font-weight:900;color:#fff;background:var(--danger);padding:1px 7px;border-radius:20px}
 .due-tag{font-size:10px;font-weight:900;color:#fff;background:var(--due);padding:1px 7px;border-radius:20px}
-.subtoggle{display:inline-flex;border:2px solid var(--edge);border-radius:8px;overflow:hidden;margin-bottom:14px;box-shadow:var(--shadow-sm)}
-.subtoggle button{font-size:13.5px;font-weight:800;padding:9px 18px;background:#fff;border:none;cursor:pointer;color:var(--ink);border-right:2px solid var(--edge)}
-.subtoggle button:last-child{border-right:none}
-.subtoggle button[aria-pressed="true"]{background:var(--accent);color:#fff}
-.tbl-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-.tbl-tools select,.tbl-tools input{padding:8px 10px;border:2px solid var(--edge);border-radius:6px;background:#fff;font-size:13px;font-family:inherit;font-weight:600}
-.tbl-tools input[type=text]{min-width:150px}
+/* tracker toolbar */
+.tbl-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.tbl-tools select,.tbl-tools input{padding:7px 10px;border:2px solid var(--edge);border-radius:6px;background:#fff;font-size:13px;font-family:inherit;font-weight:600}
+.tbl-tools input[type=text]{min-width:170px}
 .tbl-tools input[type=number]{width:70px}
 .tbl-tools label{font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--faint);font-weight:800}
 .toggle{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer;font-weight:700}
-.chipbtn{padding:6px 13px;border:2px solid var(--edge);border-radius:999px;background:#fff;cursor:pointer;font-size:12.5px;color:var(--ink);font-weight:800;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.chipbtn{padding:6px 13px;border:2px solid var(--edge);border-radius:999px;background:#fff;cursor:pointer;font-size:12.5px;color:var(--ink);font-weight:800;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-family:inherit}
 .chipbtn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
 .count{font-size:12px;color:var(--faint);margin:0 0 8px;text-transform:uppercase;letter-spacing:.03em;font-weight:800}
-select.mini{font-size:12px;font-weight:700;padding:4px 7px;border:1.5px solid var(--edge);border-radius:6px;background:#fff;cursor:pointer;font-family:inherit}
-select.mini:disabled{opacity:.5;cursor:progress}
-.xgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;padding:6px 4px}
-@media(max-width:820px){.xgrid{grid-template-columns:1fr}}
+/* tracker sheet: dense, full-width, sticky header + row numbers */
+.tbl-scroll{overflow:auto;border:2px solid var(--edge);border-radius:var(--r);background:var(--panel)}
+#tracker .tbl-scroll{height:calc(100vh - 236px);min-height:420px;border-radius:6px;box-shadow:none}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+#tracker table{min-width:1720px;font-size:12.5px;line-height:1.15}
+th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--faint);font-weight:800;background:var(--panel-2);cursor:pointer;white-space:nowrap}
+#tracker thead{position:sticky;top:0;z-index:3}
+#tracker th{height:30px;background:var(--accent);color:#fff;border-right:1px solid var(--accent-ink);border-bottom:2px solid var(--edge);padding:5px 7px;font-size:12px;letter-spacing:0;text-transform:none;text-align:center}
+#tracker th:hover{background:var(--accent-ink)}
+#tracker td{height:27px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:3px 6px;white-space:nowrap;vertical-align:middle}
+#tracker tbody tr:nth-child(even){background:var(--panel-2)}
+#tracker tbody tr:hover{background:var(--accent-soft)}
+#tracker tr.od td{background:var(--danger-soft)}
+#tracker td.notes{white-space:nowrap;min-width:320px;max-width:520px;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:11.5px}
+#tracker .rownum{position:sticky;left:0;z-index:2;width:38px;min-width:38px;max-width:38px;text-align:center;background:var(--panel-2);color:var(--muted);font-variant-numeric:tabular-nums}
+#tracker th.rownum{z-index:4;background:var(--accent);color:#fff}
+#tracker .xbtn{width:26px;min-width:26px;text-align:center;cursor:pointer;font-weight:900;color:var(--accent-ink);user-select:none}
+#tracker select.mini{height:21px;min-width:110px;padding:1px 22px 1px 7px;border:1px solid var(--edge);border-radius:999px;font-size:11px;line-height:1;font-weight:800;background:#fff;cursor:pointer;font-family:inherit}
+#tracker select.mini:disabled{opacity:.5;cursor:progress}
+#tracker select.st-rejected{background:#f8d7da;border-color:#c73b46;color:#8f1620}
+#tracker select.st-interviewing{background:var(--accent);border-color:var(--accent-ink);color:#fff}
+#tracker select.st-shortlisted{background:#d9f2df;border-color:#69a979;color:#245f35}
+#tracker select.st-offer{background:#1b6b3a;border-color:#124a28;color:#fff}
+#tracker select.st-applied{background:var(--accent-soft);border-color:#6e9bc5;color:var(--accent-ink)}
+#tracker select.st-pending,#tracker select.st-referral-pending{background:#fff0c7;border-color:#c49a37;color:#725514}
+#tracker select.st-dropped,#tracker select.st-expired{background:#e5e7ea;border-color:#8d949b;color:#4d545b}
+/* expanded detail row */
+#tracker tr.xrow td{white-space:normal;background:#fff;border-bottom:2px solid var(--edge);padding:10px 14px 12px}
+#tracker tr.xrow td>div{position:sticky;left:12px;max-width:calc(100vw - 60px)}   /* stays in view while the sheet scrolls sideways */
+.xgrid{display:grid;grid-template-columns:1.2fr 1fr;gap:12px 28px}
+@media(max-width:900px){.xgrid{grid-template-columns:1fr}}
 .xgrid h4{margin:0 0 7px;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);font-weight:800}
-.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:13px}
-.kv .k{font-size:11.5px;text-transform:uppercase;color:var(--faint);font-weight:800;white-space:nowrap}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12.5px}
+.kv .k{font-size:11px;text-transform:uppercase;color:var(--faint);font-weight:800;white-space:nowrap}
 .kv span:not(.k){font-weight:600;word-break:break-all}
-.notebox{width:100%;font-family:var(--sans);font-size:13px;padding:9px 11px;border:2px solid var(--edge);border-radius:7px;background:#fff;color:var(--ink);resize:vertical;font-weight:500;line-height:1.5}
+.notebox{width:100%;font-family:var(--sans);font-size:13px;padding:8px 10px;border:2px solid var(--edge);border-radius:7px;background:#fff;color:var(--ink);resize:vertical;font-weight:500;line-height:1.5}
 .notebox:focus{outline:none;border-color:var(--accent)}
-.savebtn{font-size:12.5px;font-weight:800;padding:7px 14px;border:2px solid var(--edge);border-radius:6px;background:var(--accent-soft);color:var(--accent-ink);cursor:pointer;margin-top:6px}
+.savebtn{font-size:12.5px;font-weight:800;padding:6px 14px;border:2px solid var(--edge);border-radius:6px;background:var(--accent-soft);color:var(--accent-ink);cursor:pointer;margin-top:6px;font-family:inherit}
 .savebtn:hover{box-shadow:2px 2px 0 var(--edge)}
 .note-hint{font-size:11px;color:var(--faint);font-weight:600;margin-left:8px}
+.flag{color:var(--due);font-size:12px;font-weight:800;margin-top:8px}
 .empty{color:var(--faint);text-align:center;padding:60px 20px;font-size:13.5px;font-weight:600}
 #toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:80}
 .toast{background:#fff;border:2px solid var(--edge);border-radius:8px;box-shadow:var(--shadow-sm);padding:10px 14px;font-size:13px;font-weight:700;max-width:340px;animation:tin .16s}
 .toast.ok{border-color:var(--pos)} .toast.ok b{color:var(--pos)}
 .toast.err{border-color:var(--danger)} .toast.err b{color:var(--danger)}
-.toast.info{border-color:var(--accent)} .toast.info b{color:var(--accent-ink)}
 .toast .sub{font-weight:500;color:var(--muted);font-size:11.5px;margin-top:2px;font-family:var(--mono)}
 @keyframes tin{from{opacity:0;transform:translateY(6px)}}
 footer{margin-top:26px;font-size:12px;color:var(--faint);text-align:center;font-weight:600}
@@ -287,8 +308,9 @@ TEMPLATE = r"""<!DOCTYPE html>
 <header>
   <div class="htop">
     <div>
-      <div class="brand">Job Search Tracker <small>one page · one Supabase database · reads live on every open</small></div>
-      <div class="badges"><span class="livepill off" id="livepill" title="click to change the key"><span class="dot"></span><span id="livetxt">connecting…</span></span></div>
+      <div class="brand">Job Search Tracker <small>one page · one Supabase table · reads live on every open</small></div>
+      <div class="badges"><span class="livepill off" id="livepill" title="click to change the key"><span class="dot"></span><span id="livetxt">connecting…</span></span>
+        <button class="reload" id="reload" title="re-read Supabase">↻ Reload data</button></div>
     </div>
     <div class="clock">today <b id="today-date"></b><span style="font-size:11px;color:var(--faint)" id="projname"></span></div>
   </div>
@@ -307,31 +329,20 @@ TEMPLATE = r"""<!DOCTYPE html>
     </div>
   </section>
   <section class="panel" id="tracker" role="tabpanel">
-    <div class="subtoggle" role="group" aria-label="Tracker view">
-      <button id="tg-apps" aria-pressed="true">Job Applications</button>
-      <button id="tg-net" aria-pressed="false">Networking</button>
-    </div>
-    <div id="trk-apps">
-      <div class="tbl-tools" id="apps-tools"></div><div class="count" id="apps-count"></div>
-      <div class="tbl-scroll"><table id="apps-table"></table></div>
-    </div>
-    <div id="trk-net" class="hide">
-      <div class="tbl-tools" id="net-tools"></div><div class="count" id="net-count"></div>
-      <div class="tbl-scroll"><table id="net-table"></table></div>
-    </div>
+    <div class="tbl-tools" id="apps-tools"></div><div class="count" id="apps-count"></div>
+    <div class="tbl-scroll"><table id="apps-table"></table></div>
   </section>
   <footer>Supabase is the record; this page is a live view of it. Generated by refresh.py — regenerate only when the template changes.</footer>
 </main>
 <div id="toasts"></div>
 <script>
 const SUPABASE_URL="__SUPABASE_URL__";
-const APP_STATUSES=__APP_STATUSES__, OUTREACH_STATUSES=__OUTREACH_STATUSES__;
-const TODAY=new Date().toISOString().slice(0,10);
+const APP_STATUSES=__APP_STATUSES__;
+const TODAY=new Date().toLocaleDateString('en-CA');   // local calendar date, yyyy-mm-dd
 const KEY_STORE='job_tracker.supabase_key';
-let APPS=[], CONTACTS=[], appById={};
+let APPS=[], appById={};
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>(s==null?"":String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const contactsFor=id=>CONTACTS.filter(c=>c.application_id===id&&c.outreach_status!=='dropped');
 const OPEN_ST=new Set(['pending','applied','shortlisted','interviewing','referral-pending']);
 const isOpen=a=>OPEN_ST.has(a.status);
 const isOverdue=a=>isOpen(a)&&a.follow_up_by&&a.follow_up_by<TODAY;
@@ -354,6 +365,7 @@ function askKey(msg){
   $('#keygo').onclick=go;$('#keyin').onkeydown=e=>{if(e.key==='Enter')go();};
 }
 $('#livepill').onclick=()=>askKey('Change the key for this page.');
+$('#reload').onclick=()=>boot();
 
 /* ---- Supabase REST ---- */
 async function api(path,opts){
@@ -364,15 +376,12 @@ async function api(path,opts){
     const err=new Error((r.status===401||r.status===403)?'Key rejected ('+r.status+')':'HTTP '+r.status+' '+t.slice(0,140));err.status=r.status;throw err;}
   return r.status===204?null:r.json();
 }
-const APP_COLS='job_id,company,role,location,lane,score,track,resume,job_url,req_id,found_date,referral_state,status,applied_date,follow_up_by,top_contact,legit_flags,notes';
-const CON_COLS='id,name,title,company,application_id,persona,focus_area,hook_signal,channel,linkedin_url,email,is_alum,outreach_status,last_touch,next_action,notes';
+const APP_COLS='job_id,company,role,location,lane,score,track,resume,job_url,req_id,found_date,referral_state,status,applied_date,follow_up_by,legit_flags,notes';
 async function load(){
-  const [apps,contacts]=await Promise.all([
-    api(`applications?select=${APP_COLS}&order=found_date.desc,job_id.desc`,{headers:{'Prefer':''}}),
-    api(`contacts?select=${CON_COLS}&order=id`,{headers:{'Prefer':''}})]);
-  APPS=apps||[];CONTACTS=contacts||[];appById=Object.fromEntries(APPS.map(a=>[a.job_id,a]));
+  APPS=(await api(`applications?select=${APP_COLS}&order=found_date.desc,job_id.desc`,{headers:{'Prefer':''}}))||[];
+  appById=Object.fromEntries(APPS.map(a=>[a.job_id,a]));
 }
-async function patch(table,filter,body){await api(`${table}?${filter}`,{method:'PATCH',body:JSON.stringify(body)});}
+async function patch(filter,body){await api(`applications?${filter}`,{method:'PATCH',body:JSON.stringify(body)});}
 
 /* ---- boot ---- */
 async function boot(){
@@ -382,11 +391,11 @@ async function boot(){
   catch(e){if(e.status===401||e.status===403){setKey('');return askKey('That key was rejected — paste it again.');}
     $('#livepill').className='livepill off';$('#livetxt').textContent='offline';
     $('#srcnote').innerHTML='<b>Could not reach Supabase.</b> '+esc(e.message)+' — check your connection, then reload.';return;}
-  $('#livepill').className='livepill on';$('#livetxt').textContent=`live · ${APPS.length} applications · ${CONTACTS.length} contacts`;
-  $('#srcnote').innerHTML='<b>Live.</b> Every Status / Outreach change and every saved note writes straight to Supabase. Reload to see rows the daily run added.';
+  $('#livepill').className='livepill on';$('#livetxt').textContent=`live · ${APPS.length} applications`;
+  $('#srcnote').innerHTML='<b>Live.</b> Every Status change and every saved note writes straight to Supabase. Hit ↻ Reload after a daily run to see the new rows.';
   renderAll();
 }
-function renderAll(){renderKPIs();renderDist();renderRecent();renderAppsTools();renderAppsTable();renderNetTools();renderNetTable();}
+function renderAll(){renderKPIs();renderDist();renderRecent();renderAppsTools();renderAppsTable();}
 
 /* ---- toasts / tabs ---- */
 function toast(msg,kind,sub){const el=document.createElement('div');el.className='toast '+(kind||'ok');
@@ -404,161 +413,114 @@ async function commit(write,optimistic,okMsg,sel,prev){
 }
 function doStatus(id,ns,sel,prev){
   const body={status:ns};if(ns==='applied'&&!appById[id].applied_date)body.applied_date=TODAY;
-  commit(()=>patch('applications',`job_id=eq.${encodeURIComponent(id)}`,body),
-    ()=>{Object.assign(appById[id],body);},`${id} → ${ns}`,sel,prev);
+  commit(()=>patch(`job_id=eq.${encodeURIComponent(id)}`,body),()=>{Object.assign(appById[id],body);},`${id} → ${ns}`,sel,prev);
 }
 function doNote(id,txt){
-  commit(()=>patch('applications',`job_id=eq.${encodeURIComponent(id)}`,{notes:txt}),()=>{appById[id].notes=txt;},`${id} note saved`);
-}
-function doOutreach(c,ns,sel,prev){
-  const also=(ns==='referral_secured'&&c.application_id&&appById[c.application_id]);
-  commit(async()=>{await patch('contacts',`id=eq.${c.id}`,{outreach_status:ns,last_touch:TODAY});
-      if(also)await patch('applications',`job_id=eq.${encodeURIComponent(c.application_id)}`,{referral_state:'referred'});},
-    ()=>{c.outreach_status=ns;c.last_touch=TODAY;if(also)appById[c.application_id].referral_state='referred';},`${c.name} → ${ns}`,sel,prev);
+  commit(()=>patch(`job_id=eq.${encodeURIComponent(id)}`,{notes:txt}),()=>{appById[id].notes=txt;},`${id} note saved`);
 }
 
 /* ---- Dashboard ---- */
 function renderKPIs(){
-  const st=s=>APPS.filter(a=>a.status===s).length, cs=s=>CONTACTS.filter(c=>c.outreach_status===s).length;
-  const REPLIED=['replied','positive','meeting_scheduled','negative','referral_asked','referral_secured'];
-  const replied=CONTACTS.filter(c=>REPLIED.includes(c.outreach_status)).length;
-  const accepted=CONTACTS.filter(c=>c.outreach_status==='accepted'||REPLIED.includes(c.outreach_status)).length;
-  const od=APPS.filter(isOverdue).length;
-  const groups=[
-    ['Job Applications',[{n:APPS.length,l:'Sourced'},{n:st('applied'),l:'Applied',cls:'accent'},{n:st('shortlisted'),l:'Shortlisted'},
-      {n:st('interviewing')+st('offer'),l:'Interviews'},{n:st('rejected'),l:'Rejected'},{n:od,l:'Overdue follow-ups',cls:od?'warn':''}]],
-    ['Networking',[{n:CONTACTS.length,l:'Sourced'},{n:cs('sent'),l:'Sent',cls:'accent'},{n:accepted,l:'Accepted'},{n:replied,l:'Replied'},{n:cs('referral_secured'),l:'Referrals'}]]];
-  $('#kpis').innerHTML=groups.map(([title,cards])=>`<div class="kpigroup"><h4>${title}</h4><div class="kpirow" style="--cols:${cards.length}">`
-    +cards.map(c=>`<div class="kpi ${c.cls||''}"><div class="n">${c.n}</div><div class="l">${esc(c.l)}</div></div>`).join('')+`</div></div>`).join('');
+  const st=s=>APPS.filter(a=>a.status===s).length, od=APPS.filter(isOverdue).length;
+  const cards=[{n:APPS.length,l:'Sourced'},{n:st('applied'),l:'Applied',cls:'accent'},{n:st('shortlisted'),l:'Shortlisted'},
+    {n:st('interviewing')+st('offer'),l:'Interviews'},{n:st('rejected'),l:'Rejected'},{n:od,l:'Overdue follow-ups',cls:od?'warn':''}];
+  $('#kpis').innerHTML=`<div class="kpigroup"><h4>Job Applications</h4><div class="kpirow" style="--cols:${cards.length}">`
+    +cards.map(c=>`<div class="kpi ${c.cls||''}"><div class="n">${c.n}</div><div class="l">${esc(c.l)}</div></div>`).join('')+`</div></div>`;
 }
 function renderDist(){
-  const stColor={'pending':'#3c4b57','applied':'var(--pos)','shortlisted':'var(--pos)','interviewing':'var(--accent)','rejected':'var(--neg)','dropped':'var(--drop)'};
+  const laneColor={'direct-apply':'var(--direct)',staffing:'var(--staffing)',referral:'var(--accent)',outreach:'var(--accent)'};
+  const stColor={'pending':'#3c4b57','applied':'var(--accent)','shortlisted':'var(--pos)','interviewing':'var(--accent-ink)','offer':'var(--pos)','rejected':'var(--neg)','dropped':'var(--drop)','expired':'var(--drop)'};
+  const trackColor={T1:'#08417a',T2:'#3c4b57'};
   const tot=APPS.length||1,count=f=>APPS.filter(f).length;
+  const distinct=k=>[...new Set(APPS.map(a=>a[k]).filter(Boolean))];   // only values the data actually carries
   const bar=(lab,val,color)=>`<div class="drow"><span class="lab">${esc(lab)}</span><span class="track"><i style="width:${(val/tot)*100}%;background:${color}"></i></span><span class="val">${val}</span></div>`;
   let h='<div class="grp-lab">By status</div>';APP_STATUSES.forEach(s=>{const n=count(a=>a.status===s);if(n)h+=bar(s,n,stColor[s]||'var(--drop)');});
-  const byMonth={};APPS.forEach(a=>{const m=(a.found_date||'').slice(0,7);if(m)byMonth[m]=(byMonth[m]||0)+1;});
-  h+='<div class="grp-lab">Found per month</div>';Object.keys(byMonth).sort().reverse().slice(0,6).forEach(m=>h+=bar(m,byMonth[m],'var(--accent)'));
+  h+='<div class="grp-lab">By lane</div>';distinct('lane').forEach(l=>h+=bar(l,count(a=>a.lane===l),laneColor[l]||'var(--drop)'));
+  h+='<div class="grp-lab">By track</div>';distinct('track').sort().forEach(t=>h+=bar(t,count(a=>a.track===t),trackColor[t]||'var(--drop)'));
   $('#dist').innerHTML=h;}
 function renderRecent(){const rows=[...APPS].sort((a,b)=>(b.found_date||'').localeCompare(a.found_date||'')).slice(0,10);
   $('#recent').innerHTML=rows.map(a=>`<div class="recent-row" data-id="${esc(a.job_id)}"><span class="recent-date">${esc((a.found_date||'').slice(5))}</span>
     <span class="recent-title">${esc(a.company)} <span style="color:var(--faint);font-weight:500">· ${esc(a.role)}</span></span>
     <span class="recent-n"><span class="stagepill st-${esc(a.status)}">${esc(a.status)}</span></span></div>`).join('')||'<div class="empty">No applications yet.</div>';
-  $$('#recent .recent-row').forEach(r=>r.onclick=()=>{gotoTab('tracker');af.co=appById[r.dataset.id].company;af.status='';expanded=r.dataset.id;renderAppsTools();renderAppsTable();});}
+  $$('#recent .recent-row').forEach(r=>r.onclick=()=>{gotoTab('tracker');af.q=appById[r.dataset.id].company;af.status='';af.hidden=true;expanded=r.dataset.id;renderAppsTools();renderAppsTable();});}
 
-/* ---- Tracker toggle ---- */
-$('#tg-apps').onclick=()=>{$('#tg-apps').setAttribute('aria-pressed','true');$('#tg-net').setAttribute('aria-pressed','false');$('#trk-apps').classList.remove('hide');$('#trk-net').classList.add('hide');};
-$('#tg-net').onclick=()=>{$('#tg-net').setAttribute('aria-pressed','true');$('#tg-apps').setAttribute('aria-pressed','false');$('#trk-net').classList.remove('hide');$('#trk-apps').classList.add('hide');};
-
-/* ---- Job Applications table ---- */
-const af={status:'',co:'',smin:'',smax:'',od:false,hidden:false};
-let appsSort={k:'found_date',dir:1}, expanded=null;
+/* ---- Tracker sheet ---- */
+const af={status:'',q:'',lane:'',track:'',smin:'',smax:'',od:false,hidden:false};
+let appsSort={k:'found_date',dir:-1}, expanded=null;
 function renderAppsTools(){
-  $('#apps-tools').innerHTML=`<label>Status</label><select id="a-status"><option value="">all active</option>${APP_STATUSES.map(s=>`<option>${s}</option>`).join('')}</select>
-    <label>Company / role</label><input type="text" id="a-co" placeholder="search…">
-    <label>Score</label><input type="number" id="a-smin" placeholder="min"> – <input type="number" id="a-smax" placeholder="max">
-    <label class="toggle"><input type="checkbox" id="a-od"> Overdue only</label>
-    <label class="toggle"><input type="checkbox" id="a-hid"> Show dropped / rejected</label><button class="chipbtn" id="a-reset">Reset</button>`;
-  $('#a-status').value=af.status;$('#a-co').value=af.co;$('#a-smin').value=af.smin;$('#a-smax').value=af.smax;$('#a-od').checked=af.od;$('#a-hid').checked=af.hidden;
-  ['a-status','a-co','a-smin','a-smax'].forEach(id=>$('#'+id).oninput=()=>{af.status=$('#a-status').value;af.co=$('#a-co').value;af.smin=$('#a-smin').value;af.smax=$('#a-smax').value;renderAppsTable();});
+  const opt=(vals,sel)=>vals.map(v=>`<option ${v===sel?'selected':''}>${esc(v)}</option>`).join('');
+  $('#apps-tools').innerHTML=`<label>Status</label><select id="a-status"><option value="">all active</option>${opt(APP_STATUSES,af.status)}</select>
+    <label>Lane</label><select id="a-lane"><option value="">all</option>${opt([...new Set(APPS.map(a=>a.lane).filter(Boolean))],af.lane)}</select>
+    <label>Track</label><select id="a-track"><option value="">all</option>${opt([...new Set(APPS.map(a=>a.track).filter(Boolean))].sort(),af.track)}</select>
+    <label>Search</label><input type="text" id="a-q" placeholder="company, role, job id…" value="${esc(af.q)}">
+    <label>Score</label><input type="number" id="a-smin" placeholder="min" value="${esc(af.smin)}"> – <input type="number" id="a-smax" placeholder="max" value="${esc(af.smax)}">
+    <label class="toggle"><input type="checkbox" id="a-od" ${af.od?'checked':''}> Overdue only</label>
+    <label class="toggle"><input type="checkbox" id="a-hid" ${af.hidden?'checked':''}> Show dropped / rejected</label><button class="chipbtn" id="a-reset">Reset</button>`;
+  ['a-status','a-lane','a-track','a-q','a-smin','a-smax'].forEach(id=>$('#'+id).oninput=()=>{af.status=$('#a-status').value;af.lane=$('#a-lane').value;af.track=$('#a-track').value;af.q=$('#a-q').value;af.smin=$('#a-smin').value;af.smax=$('#a-smax').value;renderAppsTable();});
   $('#a-od').onchange=()=>{af.od=$('#a-od').checked;renderAppsTable();};
   $('#a-hid').onchange=()=>{af.hidden=$('#a-hid').checked;renderAppsTable();};
-  $('#a-reset').onclick=()=>{Object.assign(af,{status:'',co:'',smin:'',smax:'',od:false,hidden:false});renderAppsTools();renderAppsTable();};}
+  $('#a-reset').onclick=()=>{Object.assign(af,{status:'',q:'',lane:'',track:'',smin:'',smax:'',od:false,hidden:false});renderAppsTools();renderAppsTable();};}
+// Networking is not tracked here. Each row just gets the two LinkedIn people searches,
+// built from the company and role — the same searches the ranker generates.
 function peopleLinks(a){
-  // The daily run stores the recruiter / team-lead people-search links as contacts rows
-  // (persona RECRUITER / SENIOR_MANAGER). Fall back to building the same searches here.
-  const cs=contactsFor(a.job_id);
-  const find=p=>(cs.find(c=>c.persona===p&&c.linkedin_url)||{}).linkedin_url;
   const q=s=>'https://www.linkedin.com/search/results/people/?origin=GLOBAL_SEARCH_HEADER&keywords='+encodeURIComponent(s);
-  const role=(a.role||'').toLowerCase(), peer=role.includes('process')?'process engineer':role.includes('manufacturing')?'manufacturing engineer':'quality engineer';
-  return {rec:find('RECRUITER')||q(`"${a.company}" recruiter OR "talent acquisition"`), lead:find('SENIOR_MANAGER')||q(`"${a.company}" ${peer}`), peer};
+  const role=(a.role||'').toLowerCase();
+  const peer=role.includes('process')?'process engineer':role.includes('manufacturing')?'manufacturing engineer':role.includes('mrb')?'mrb engineer':'quality engineer';
+  return {rec:q(`"${a.company}" recruiter OR "talent acquisition"`), lead:q(`"${a.company}" ${peer}`), peer};
 }
-function expandedRow(a){
-  const cs=contactsFor(a.job_id), L=peopleLinks(a);
-  // Stage 4 stores the two people-search links as contact rows; they are the buttons above, not people.
-  const people=cs.filter(c=>c.name&&!/search\/results\/people/.test(c.linkedin_url||'')).map(c=>`<tr><td><b>${esc(c.name)}</b>${c.is_alum?' <span class="chip alum">alum</span>':''}<div style="color:var(--muted);font-size:11.5px">${esc(c.title||'')}</div></td>
-      <td style="font-size:11.5px;color:var(--muted)">${esc(c.persona||'—')}</td>
-      <td><select class="mini" data-oc="${c.id}">${OUTREACH_STATUSES.map(s=>`<option ${s===c.outreach_status?'selected':''}>${s}</option>`).join('')}</select></td>
-      <td>${c.linkedin_url?`<a href="${esc(c.linkedin_url)}" target="_blank" rel="noopener">↗</a>`:'—'}</td></tr>`).join('');
-  return `<tr class="xrow"><td colspan="12"><div class="xgrid">
+function expandedRow(a,ncols){
+  const L=peopleLinks(a);
+  return `<tr class="xrow"><td colspan="${ncols}"><div class="xgrid">
     <div><h4>This posting</h4><div class="kv">
-      <span class="k">Job</span><span class="mono" style="font-size:12px">${esc(a.job_id)}${a.req_id?' · req '+esc(a.req_id):''}</span>
-      <span class="k">Posting</span><span>${a.job_url?`<a href="${esc(a.job_url)}" target="_blank" rel="noopener">open ↗</a>`:'—'}</span>
-      <span class="k">Resume</span><span class="mono" style="font-size:12px">${esc(a.resume)||'—'}</span>
-      <span class="k">Applied</span><span class="mono">${esc(a.applied_date)||'—'}</span>
+      <span class="k">Job</span><span class="mono">${esc(a.job_id)}${a.req_id?' · req '+esc(a.req_id):''}</span>
+      <span class="k">Posting</span><span>${a.job_url?`<a href="${esc(a.job_url)}" target="_blank" rel="noopener">${esc(a.job_url)}</a>`:'—'}</span>
+      <span class="k">Resume</span><span class="mono">${esc(a.resume)||'—'}</span>
       <span class="k">Follow-up</span><span class="mono">${esc(a.follow_up_by)||'—'}</span>
       <span class="k">Referral</span><span>${esc(a.referral_state)||'—'}</span></div>
-      ${a.legit_flags?`<div style="color:var(--due);font-size:12px;font-weight:800;margin-top:8px">⚠ ${esc(a.legit_flags)}</div>`:''}
-      <h4 style="margin-top:14px">${a.status==='dropped'?'Drop review — why dropped':'Notes'}</h4>
+      ${a.legit_flags?`<div class="flag">⚠ ${esc(a.legit_flags)}</div>`:''}</div>
+    <div><h4>People at ${esc(a.company)}</h4>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <a class="chipbtn" href="${esc(L.rec)}" target="_blank" rel="noopener" style="background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent)">🤝 Recruiters ↗</a>
+        <a class="chipbtn" href="${esc(L.lead)}" target="_blank" rel="noopener" style="background:#e2f2e8;color:var(--pos);border-color:#bce0c9">👥 Team leads (${esc(L.peer)}) ↗</a></div>
+      <h4>${a.status==='dropped'?'Drop review — why dropped':'Notes'}</h4>
       <textarea class="notebox" id="note-${esc(a.job_id)}" rows="3" placeholder="Why did you drop / what did you learn? (dropped notes feed learning_log.md)">${esc(a.notes||'')}</textarea>
       <button class="savebtn" data-note="${esc(a.job_id)}">Save note</button><span class="note-hint">writes to Supabase</span></div>
-    <div><h4>People</h4>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <a class="chipbtn" href="${esc(L.rec)}" target="_blank" rel="noopener" style="background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent)">🤝 Recruiters at ${esc(a.company)} ↗</a>
-        <a class="chipbtn" href="${esc(L.lead)}" target="_blank" rel="noopener" style="background:#e2f2e8;color:var(--pos);border-color:#bce0c9">👥 Team leads (${esc(L.peer)}) ↗</a></div>
-      ${people?`<div class="tbl-scroll"><table><thead><tr><th>Contact</th><th>Persona</th><th>Outreach</th><th>Link</th></tr></thead><tbody>${people}</tbody></table></div>`
-        :'<div style="color:var(--faint);font-size:12.5px;font-weight:500">No named contacts yet — use the searches above, then log people in the Networking table.</div>'}
-    </div></div></td></tr>`;
+    </div></td></tr>`;
 }
 function renderAppsTable(){
-  const q=af.co.trim().toLowerCase();
+  const q=af.q.trim().toLowerCase();
   let rows=APPS.filter(a=>{
     if(af.status){if(a.status!==af.status)return false;}else if(!af.hidden&&HIDDEN_STATUSES.includes(a.status))return false;
-    if(q&&!((a.company||'')+' '+(a.role||'')+' '+(a.job_id||'')).toLowerCase().includes(q))return false;
+    if(af.lane&&a.lane!==af.lane)return false;if(af.track&&a.track!==af.track)return false;
+    if(q&&!((a.company||'')+' '+(a.role||'')+' '+(a.job_id||'')+' '+(a.location||'')).toLowerCase().includes(q))return false;
     if(af.smin!==''&&(a.score==null||a.score<+af.smin))return false;if(af.smax!==''&&(a.score==null||a.score>+af.smax))return false;
     if(af.od&&!isOverdue(a))return false;return true;});
   const {k,dir}=appsSort;
   rows.sort((x,y)=>{let A=x[k],B=y[k];if(['follow_up_by','found_date','applied_date'].includes(k)){A=A||'';B=B||'';}if(k==='score'){A=A==null?-1:A;B=B==null?-1:B;}
-    if(A<B)return dir;if(A>B)return -dir;return (y.score==null?-1:y.score)-(x.score==null?-1:x.score);});
+    if(A<B)return -dir;if(A>B)return dir;return (y.score==null?-1:y.score)-(x.score==null?-1:x.score);});
   $('#apps-count').textContent=`${rows.length} application${rows.length===1?'':'s'}`;
-  const cols=[['x',''],['found_date','Found'],['company','Company'],['role','Role'],['location','Loc'],['score','Score'],['status','Status'],['follow_up_by','Follow-up'],['applied_date','Applied'],['resume','Resume'],['job_url','URL'],['notes','Notes']];
-  $('#apps-table').innerHTML=`<thead><tr>${cols.map(([k,l])=>`<th data-k="${k}">${l}</th>`).join('')}</tr></thead><tbody>`+
-    rows.map(a=>{const od=isOverdue(a),due=isDue(a),x=expanded===a.job_id;
-      return `<tr class="${od?'od':''}"><td class="xbtn" data-x="${esc(a.job_id)}" title="details, notes, people">${x?'▾':'▸'}</td>
-        <td class="mono" style="white-space:nowrap;font-size:12px">${esc(a.found_date)||'—'}</td><td style="font-weight:700">${esc(a.company)}</td>
-        <td style="min-width:170px">${esc(a.role)}</td><td style="font-size:12px">${esc(a.location)||'—'}</td>
-        <td class="score-pill ${scoreClass(a.score)}">${a.score==null?'—':a.score}</td>
-        <td><select class="mini" data-st="${esc(a.job_id)}">${APP_STATUSES.map(s=>`<option ${s===a.status?'selected':''}>${s}</option>`).join('')}</select></td>
-        <td class="mono" style="white-space:nowrap;font-size:12px">${a.follow_up_by?esc(a.follow_up_by)+(od?' <span class="od-tag">OD</span>':due?' <span class="due-tag">DUE</span>':''):'—'}</td>
+  const cols=[['job_id','Job ID'],['found_date','Found'],['company','Company'],['role','Role'],['location','Location'],['lane','Lane'],['score','Score'],['track','Track'],['status','Status'],['applied_date','Applied'],['follow_up_by','Follow-up'],['job_url','URL'],['resume','Resume'],['notes','Notes']];
+  const ncols=cols.length+2;
+  $('#apps-table').innerHTML=`<thead><tr><th class="rownum">#</th><th class="xbtn"></th>${cols.map(([k,l])=>`<th data-k="${k}" title="sort">${l}</th>`).join('')}</tr></thead><tbody>`+
+    rows.map((a,i)=>{const od=isOverdue(a),due=isDue(a),x=expanded===a.job_id;
+      return `<tr class="${od?'od':''}"><td class="rownum">${i+1}</td><td class="xbtn" data-x="${esc(a.job_id)}" title="posting, resume, people, notes">${x?'▾':'▸'}</td>
+        <td class="mono" style="font-size:11.5px">${esc(a.job_id)}</td>
+        <td class="mono" style="font-size:12px">${esc(a.found_date)||'—'}</td><td style="font-weight:700">${esc(a.company)}</td>
+        <td style="min-width:200px;max-width:340px;overflow:hidden;text-overflow:ellipsis" title="${esc(a.role)}">${esc(a.role)}</td>
+        <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${esc(a.location)}">${esc(a.location)||'—'}</td>
+        <td><span class="chip ${esc(a.lane)}">${esc(a.lane)||'—'}</span></td>
+        <td class="score-pill ${scoreClass(a.score)}" style="text-align:center">${a.score==null?'—':a.score}</td>
+        <td>${a.track?`<span class="chip ${esc(String(a.track).toLowerCase())}">${esc(a.track)}</span>`:'—'}</td>
+        <td><select class="mini st-${esc(a.status)}" data-st="${esc(a.job_id)}">${APP_STATUSES.map(s=>`<option ${s===a.status?'selected':''}>${s}</option>`).join('')}</select></td>
         <td class="mono" style="font-size:12px">${esc(a.applied_date)||'—'}</td>
-        <td class="mono" style="font-size:11px;max-width:150px;word-break:break-all" title="${esc(a.resume)}">${a.resume?esc(String(a.resume).split('/').pop()):'—'}</td>
-        <td>${a.job_url?`<a href="${esc(a.job_url)}" target="_blank" rel="noopener">↗</a>`:'—'}</td>
-        <td style="font-size:11.5px;color:var(--muted);max-width:220px;font-weight:500">${esc(a.notes)||'—'}</td></tr>`+(x?expandedRow(a):'');}).join('')+`</tbody>`;
+        <td class="mono" style="font-size:12px">${a.follow_up_by?esc(a.follow_up_by)+(od?' <span class="od-tag">OD</span>':due?' <span class="due-tag">DUE</span>':''):'—'}</td>
+        <td style="text-align:center">${a.job_url?`<a href="${esc(a.job_url)}" target="_blank" rel="noopener">↗</a>`:'—'}</td>
+        <td class="mono" style="font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis" title="${esc(a.resume)}">${a.resume?esc(String(a.resume).split('/').pop()):'—'}</td>
+        <td class="notes" title="${esc(a.notes)}">${esc(a.notes)||'—'}</td></tr>`+(x?expandedRow(a,ncols):'');}).join('')+`</tbody>`;
   $$('#apps-table [data-x]').forEach(b=>b.onclick=()=>{expanded=expanded===b.dataset.x?null:b.dataset.x;renderAppsTable();});
   $$('#apps-table [data-st]').forEach(sel=>{const prev=sel.value;sel.onchange=()=>doStatus(sel.dataset.st,sel.value,sel,prev);});
   $$('#apps-table [data-note]').forEach(b=>b.onclick=()=>doNote(b.dataset.note,$('#note-'+CSS.escape(b.dataset.note)).value));
-  $$('#apps-table [data-oc]').forEach(sel=>{const prev=sel.value;sel.onchange=()=>{const c=CONTACTS.find(x=>String(x.id)===sel.dataset.oc);if(c)doOutreach(c,sel.value,sel,prev);};});
-  $$('#apps-table th[data-k]').forEach(t=>t.onclick=()=>{const k=t.dataset.k;if(k==='x')return;appsSort.dir=(appsSort.k===k?-appsSort.dir:1);appsSort.k=k;renderAppsTable();});}
-
-/* ---- Networking table ---- */
-const nf={co:'',st:'',persona:'',q:''};
-let netSort={k:'last_touch',dir:1};
-function renderNetTools(){
-  const cos=[...new Set(CONTACTS.map(c=>c.company).filter(Boolean))].sort();
-  const pers=[...new Set(CONTACTS.map(c=>c.persona).filter(Boolean))].sort();
-  $('#net-tools').innerHTML=`<label>Company</label><select id="n-co"><option value="">all</option>${cos.map(c=>`<option ${nf.co===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
-    <label>Outreach</label><select id="n-st"><option value="">all</option>${OUTREACH_STATUSES.map(s=>`<option ${nf.st===s?'selected':''}>${s}</option>`).join('')}</select>
-    <label>Persona</label><select id="n-pe"><option value="">all</option>${pers.map(p=>`<option ${nf.persona===p?'selected':''}>${esc(p)}</option>`).join('')}</select>
-    <input type="text" id="n-q" placeholder="name…" value="${esc(nf.q)}"><button class="chipbtn" id="n-reset">Reset</button>`;
-  $('#n-co').onchange=e=>{nf.co=e.target.value;renderNetTable();};$('#n-st').onchange=e=>{nf.st=e.target.value;renderNetTable();};
-  $('#n-pe').onchange=e=>{nf.persona=e.target.value;renderNetTable();};$('#n-q').oninput=e=>{nf.q=e.target.value;renderNetTable();};
-  $('#n-reset').onclick=()=>{Object.assign(nf,{co:'',st:'',persona:'',q:''});renderNetTools();renderNetTable();};}
-function renderNetTable(){const q=nf.q.trim().toLowerCase();
-  let rows=CONTACTS.filter(c=>{if(c.outreach_status==='dropped')return false;if(nf.co&&c.company!==nf.co)return false;if(nf.st&&c.outreach_status!==nf.st)return false;if(nf.persona&&c.persona!==nf.persona)return false;if(q&&!(c.name||'').toLowerCase().includes(q))return false;return true;});
-  const {k,dir}=netSort;rows.sort((x,y)=>{let A=(x[k]==null?'':x[k]),B=(y[k]==null?'':y[k]);if(A<B)return -dir;if(A>B)return dir;return 0;});
-  $('#net-count').textContent=`${rows.length} contact${rows.length===1?'':'s'}`;
-  const cols=[['name','Name'],['title','Title'],['company','Company'],['application_id','Posting'],['persona','Persona'],['hook_signal','Hook'],['outreach_status','Outreach'],['last_touch','Last touch'],['linkedin_url','LinkedIn'],['email','Email'],['notes','Notes']];
-  $('#net-table').innerHTML=`<thead><tr>${cols.map(([k,l])=>`<th data-k="${k}">${l}</th>`).join('')}</tr></thead><tbody>`+
-    rows.map(c=>`<tr><td style="font-weight:700">${esc(c.name)}${c.is_alum?' <span class="chip alum">alum</span>':''}</td><td style="font-size:12px;color:var(--muted);max-width:180px">${esc(c.title)||'—'}</td>
-      <td>${esc(c.company)||'—'}</td><td class="mono" style="font-size:11px">${c.application_id?esc(c.application_id):'—'}</td>
-      <td style="font-size:11.5px;color:var(--muted);font-weight:600">${esc(c.persona)||'—'}</td>
-      <td style="font-size:11.5px;color:var(--muted);max-width:200px;font-weight:500">${esc(c.hook_signal)||'—'}</td>
-      <td><select class="mini" data-oc="${c.id}">${OUTREACH_STATUSES.map(s=>`<option ${s===c.outreach_status?'selected':''}>${s}</option>`).join('')}</select></td>
-      <td class="mono" style="font-size:12px">${esc(c.last_touch)||'—'}</td>
-      <td>${c.linkedin_url?`<a href="${esc(c.linkedin_url)}" target="_blank" rel="noopener">↗</a>`:'—'}</td>
-      <td style="font-size:11px;max-width:150px;word-break:break-all">${c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:'—'}</td>
-      <td style="font-size:11px;color:var(--muted);max-width:200px;font-weight:500">${esc(c.notes)||'—'}</td></tr>`).join('')+`</tbody>`;
-  $$('#net-table [data-oc]').forEach(sel=>{const prev=sel.value;sel.onchange=()=>{const c=CONTACTS.find(x=>String(x.id)===sel.dataset.oc);if(c)doOutreach(c,sel.value,sel,prev);};});
-  $$('#net-table th[data-k]').forEach(t=>t.onclick=()=>{const k=t.dataset.k;netSort.dir=(netSort.k===k?-netSort.dir:1);netSort.k=k;renderNetTable();});}
+  $$('#apps-table th[data-k]').forEach(t=>t.onclick=()=>{const k=t.dataset.k;appsSort.dir=(appsSort.k===k?-appsSort.dir:1);appsSort.k=k;renderAppsTable();});}
 
 boot();
 </script></body></html>

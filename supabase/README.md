@@ -139,11 +139,15 @@ anon/publishable key instead, add policies granting `anon` select + update on
 
 ---
 
-## 🎨 The Interactive Artifact Dashboard (`job_tracker.html`)
+## 🎨 The Tracker Page (`job_tracker.html`)
 
-The compiled tracker in `job_tracker.html` provides:
-- **Metrics Bar**: Total applications, pipeline conversion rates, interview counts, and pending follow-ups.
-- **Dual Views**:
-  - **Applications Tab**: Filter by status, track, search by title/company, view scores and direct links.
-  - **Networking Tab**: 1-click reach-out links, persona badges, and outreach stages.
-- **Offline + Live Mode**: Opens as a standalone HTML file in any browser, or in Claude as an interactive Artifact that can query Supabase directly via MCP!
+A standalone page you bookmark. It reads the `applications` table live on every open and writes
+status / note edits straight back — no rebuild, no artifact, no hosting.
+- **Dashboard**: sourced / applied / shortlisted / interviews / rejected / overdue, distribution by
+  status, lane and track, recently found.
+- **Tracker**: a dense spreadsheet of every application (sticky header, row numbers, colored status
+  cells, sort by any column, filter by status / lane / track / score / search). Each row expands to
+  the posting link, resume, follow-up, a drop-review note, and the recruiter / team-lead LinkedIn
+  searches generated from the company and role.
+- Networking is **not** tracked in the page. The `contacts` table still receives the people-search
+  links from Stage 4 for any other tooling that wants them.

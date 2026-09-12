@@ -115,7 +115,7 @@ The tracker is **one HTML file you bookmark** — `job_tracker.html` — backed 
 
 - **Live on every open**: the page reads `applications` + `contacts` over Supabase REST when you open it and writes status / note / outreach changes straight back. Any agent that writes rows to Supabase (Claude Code, Codex, Antigravity, a shell script) shows up on reload — one tracker for every tool you run the pipeline from.
 - **Key stays in your browser**: the file bakes only your project URL. On first open it asks for your Supabase key once and keeps it in `localStorage`, so the file is safe to copy or regenerate.
-- **Two tabs**: **Dashboard** (funnel KPIs, status distribution, recently found) and **Tracker** (every application with status dropdown, drop-review notes, resume + posting links, and per-row recruiter / team-lead LinkedIn searches; a Networking sub-table for named contacts).
+- **Two tabs, applications only**: **Dashboard** (funnel KPIs, status / lane / track distribution, recently found) and **Tracker** (a dense spreadsheet of every application — sticky header, row numbers, colored status cells — each row expanding to posting, resume, drop-review note, and the recruiter / team-lead LinkedIn searches generated from the company and role). Networking is not tracked in the page.
 - **Database Schema**: [`supabase/schema.sql`](supabase/schema.sql) — ENUMs (`app_status_t`, `lane_t`, `outreach_status_t`), `updated_at` triggers, RLS, indexes.
 - **Daily loop**: `tools/log_and_refresh.py` POSTs approved roles and recruiter/team-lead links to Supabase; `./refresh.sh --fetch` only syncs tracker drop-notes into `learning_log.md`. `python3 refresh.py` regenerates the page when the template changes.
 
