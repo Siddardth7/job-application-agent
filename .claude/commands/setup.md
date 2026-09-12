@@ -237,6 +237,12 @@ Write these. For Path A, skip any file the earlier steps already populated.
    chat; tell them which keys to paste in themselves. Supabase and Apify are both optional —
    the pipeline runs free and local without either.
 
+7. **`job_tracker.html`** — run `python3 refresh.py`. It writes a standalone page that reads
+   the user's Supabase tables live on every open (their `SUPABASE_URL` from `.env` is baked in;
+   the key is pasted into the page once and stays in their browser). Tell them to **bookmark
+   the file** — it is the tracker for every tool they run the pipeline from. Skip if they
+   chose no Supabase.
+
 8. **`company_intel.md`** — copy `company_intel.template.md`. Add any hiring policy the
    user already knows first-hand; an empty table is the normal starting point.
 
@@ -259,15 +265,18 @@ Summarize what was written, then:
 > - `data/candidate_resume_database.json` — your truth source for resume tailoring
 > - `playbook/` — your scoring rubric and customization rules
 > - `Resume/Final_Resumes/Resume_Master.tex` — your master template
+> - `job_tracker.html` — your tracker page (if Supabase is configured)
 >
 > **All of these are gitignored.** They hold your personal data; keep them that way.
 >
 > **Next:**
 > 1. Refine the master `.tex` by hand and compile it once (`python3 tools/verify_pdf.py`)
 >    so you know the build works before a real application depends on it.
-> 2. Run `/fetch` to see what sourcing finds for your titles.
-> 3. Run `/apply-run` for the full daily pipeline.
-> 4. Run `/setup --section search` any time your targets shift.
+> 2. Open `job_tracker.html` in your browser, paste your Supabase key once, and bookmark it.
+>    It reads the database live — you never rebuild or upload it.
+> 3. Run `/fetch` to see what sourcing finds for your titles.
+> 4. Run `/apply-run` for the full daily pipeline.
+> 5. Run `/setup --section search` any time your targets shift.
 
 Flag anything left incomplete — especially resume-database entries with missing dates or
 un-numbered achievements the user wanted to quantify later.

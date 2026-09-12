@@ -82,9 +82,11 @@ Re-run any section later with `/setup --section search` (or `profile`, `resume`,
 
 Only needed for a cloud-synced tracker across devices. `supabase/README.md` has the
 three-minute version: create a free project, run `schema.sql`, put `SUPABASE_URL` and
-`SUPABASE_KEY` in `.env`, then `./refresh.sh --fetch`.
+`SUPABASE_KEY` in `.env`, then `python3 refresh.py` to write `job_tracker.html` — a standalone
+page you bookmark. It reads your tables live on every open (paste the key into it once; it
+stays in your browser), so every tool you run the pipeline from feeds the same tracker.
 
-Without it, the pipeline tracks locally in `tracker_data.json` and builds the same dashboard.
+Without it, the pipeline still runs; applications are logged to `seen_jobs.csv` only.
 
 ## 7. Optional: Apify LinkedIn sourcing
 

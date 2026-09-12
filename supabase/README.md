@@ -123,14 +123,19 @@ Stores all hiring managers, recruiters, and alumni contacts:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Rebuilding the Tracker Dashboard:
+### The Tracker Page:
 ```bash
-# Pull live records from Supabase and regenerate the HTML artifact:
-./refresh.sh --fetch
+# Write job_tracker.html once, then bookmark it. It reads Supabase live on every open
+# and writes edits straight back — no rebuild after runs, no artifact, no hosting.
+python3 refresh.py
 
-# Or build from local tracker_data.json offline:
-./refresh.sh
+# Sync the tracker's drop-review notes into learning_log.md (the daily run does this):
+./refresh.sh --fetch
 ```
+The page asks for your Supabase key on first open and keeps it in the browser's
+`localStorage`. The service_role key works as-is (it bypasses RLS). To use the
+anon/publishable key instead, add policies granting `anon` select + update on
+`applications` and `contacts`.
 
 ---
 

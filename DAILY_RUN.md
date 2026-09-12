@@ -70,13 +70,18 @@ years required vs `candidate.max_years`) + **Logistics 5** (fresh, direct employ
 - **Handoff**: `.pipeline/tailored.md` (job → resume map + 3-line change summaries + gate results).
   `.pipeline/tailored.json` (what Stage 4 reads) is an open contract — see `docs/audits/` item 1.
 
-### Stage 4: Supabase Sync & Artifact Rebuild (`python3 tools/log_and_refresh.py`)
+### Stage 4: Supabase Sync (`python3 tools/log_and_refresh.py`)
 - Inserts application records to Supabase `applications` table (two-track: **T1 Broad-Fit / T2 Curated Target** — T3 is retired).
 - **Persists the 1-click recruiter + team-lead LinkedIn people-search links to the Supabase `contacts` table** — the source-of-truth "contacts place" — keyed to each new `job_id` (recruiter → persona `RECRUITER`, team lead → persona `SENIOR_MANAGER`). This happens automatically here; no separate step needed. See **Source Contacts Place** below.
 - Appends new URLs to `seen_jobs.csv`.
 - Builds `.pipeline/tailored.json` itself from the customiser's `tailored.md` table + `ranked.json` (no stage writes it by hand).
-- Executes `./refresh.sh --fetch` (MANDATORY: pulls live database state to rebuild `job_tracker.html`, the Cowork `index.html` mirror, and `job_tracker.artifact.html`).
-- **Deploy target:** the live tracker is the ChatGPT Sites page in `TRACKER_SITE_URL` (`.env`). It has no push API — after the rebuild, **upload `job_tracker.html` to it by hand**; `refresh.sh` prints the reminder. Supabase stays the source of truth; the HTML is a view.
+- Runs `./refresh.sh --fetch`, which only syncs tracker drop-notes into `learning_log.md`.
+- **There is no tracker deploy step.** The tracker is `job_tracker.html`, a standalone page you bookmark
+  (generated once by `python3 refresh.py`, or by `/setup`). It reads `applications` + `contacts` from
+  Supabase over REST **every time it is opened** and writes status / note / outreach edits straight back,
+  so any run from any agent (Claude Code, Codex, Antigravity, a shell) that writes rows to Supabase is
+  already visible on reload. No artifact, no upload, no rebuild. The key is pasted once into the page
+  and lives in the browser, never in the file.
 - Exports high-score networking sheet via `python3 networking_sheet.py export --date <today>` if qualifying roles exist.
 - 🧑 **GATE B**: you receives the verified PDFs and apply links to submit directly.
 

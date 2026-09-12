@@ -40,10 +40,10 @@ available, but no Apify spend, no networking sends, no DB writes beyond what a s
    `python3 tools/log_and_refresh.py --dry-run`, then without the flag. It builds
    `.pipeline/tailored.json` from `tailored.md` + `ranked.json`, INSERTs today's applications and
    upserts the recruiter/team-lead contact links into Supabase (`chsrkysjongzgdbwqhlu`), appends
-   `seen_jobs.csv`, and runs `./refresh.sh --fetch`, which rebuilds `job_tracker.html`. The live page
-   is the ChatGPT Sites site in `TRACKER_SITE_URL` and has no push API: **tell the candidate to upload
-   `job_tracker.html` there** as part of the Gate B next-action. Never call the `Artifact` tool for
-   this; `daily-activity-tracker` is retired. Verify: `grep` today's `job_id`s in `job_tracker.html`.
+   `seen_jobs.csv`, and syncs drop-notes into `learning_log.md`. **That is the whole tracker step**:
+   `job_tracker.html` reads Supabase live on every open, so the rows are already visible — tell the
+   candidate to reload their bookmarked tracker. Never call the `Artifact` tool for this; there is no
+   artifact. Verify: the script's `Inserted into Supabase: ja-…` lines, one per approved row.
 7. **Gate (🧑 GATE B).** Report the run summary and the **exact next human action** — which tailored
    resumes to apply with (and the apply links), and which drafted contacts to review + send. **STOP.**
 
