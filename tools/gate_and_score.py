@@ -312,17 +312,34 @@ def score_sponsorship(job: dict, text: str, cfg: dict, is_intl: bool) -> tuple[i
 
 # ── Domain ──────────────────────────────────────────────────────────────────
 
+ANCHOR_HITS = 3  # ponytail: one anchor-company match outweighs three generic cue words
+
+
 def score_domain(text: str, cfg: dict) -> tuple[int, str]:
-    """First matching domain in the profile's ordered list wins; points fall linearly to the floor."""
+    """
+    The domain with the MOST cue hits wins; ties go to profile order. A hit on one
+    of the domain's anchor companies counts as ANCHOR_HITS, so "Lucid Motors" stays
+    CleanTech/EV even when the JD says "automotive" and "industrial" more often.
+    Points fall linearly from the first-listed domain to the floor.
+
+    Was: first domain in list order with ANY hit. A pharma JD whose boilerplate
+    industry list said "aerospace" once was labelled Aerospace over a Precision/
+    Regulated domain that matched twice (audit 2026-09-12, United Pharma row).
+    """
     w, floor = cfg["scoring"]["weights"]["domain"], cfg["scoring"]["domain_floor"]
     domains = cfg["domains"]
     n = len(domains)
+    best, best_hits = None, 0
     for i, d in enumerate(domains):
-        cues = (d.get("cues") or []) + (d.get("title_keywords") or []) + (d.get("company_keywords") or [])
-        if any(word_match(c, text) for c in cues if c):
-            pts = w if n <= 1 else round(w - (w - floor) * i / (n - 1))
-            return pts, d["name"]
-    return floor, cfg["default_domain"]
+        cues = (d.get("cues") or []) + (d.get("title_keywords") or [])
+        hits = sum(1 for c in cues if c and word_match(c, text))
+        hits += ANCHOR_HITS * sum(1 for c in (d.get("company_keywords") or []) if c and word_match(c, text))
+        if hits > best_hits:
+            best, best_hits = i, hits
+    if best is None:
+        return floor, cfg["default_domain"]
+    pts = w if n <= 1 else round(w - (w - floor) * best / (n - 1))
+    return pts, domains[best]["name"]
 
 
 # ── Role fit ────────────────────────────────────────────────────────────────
@@ -731,6 +748,11 @@ def run_self_test() -> int:
     check("first domain scores full", score_domain("composites work", cfg)[0] == 15)
     check("last domain scores the floor", score_domain("automotive plant", cfg)[0] == 3)
     check("unmatched is the floor + default label", score_domain("nothing here", cfg) == (3, "General"))
+    check("most cue hits wins over list order",
+          score_domain("aerospace mentioned once; wafer and semiconductor twice", cfg)[1] == "Semi")
+    check("tie goes to list order", score_domain("aerospace and automotive", cfg)[1] == "Aero")
+    check("anchor company beats generic cues",
+          score_domain("northwind plant: automotive automotive", cfg)[1] == "Aero")
 
     print("\nbuckets and shortlist")
     batch = [job(link=f"https://x/{i}", company=f"Co{i}") for i in range(5)]

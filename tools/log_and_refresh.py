@@ -96,7 +96,7 @@ def insert_to_supabase(records: list[dict], dry_run: bool = False) -> int:
         # fetch-time domain label.
         lane_val = "direct-apply"
         track_val = "T1"   # tracks retired 2026-09-09; one lane, one score
-        tag = "[Curated Target Lane]" if is_curated else "[Broad-Fit Direct Apply]"
+        tag = "[Direct Apply]"
         
         payload = [{
             "job_id": job_id,
@@ -190,7 +190,7 @@ def main():
     
     tailored_json_path = PIPELINE_DIR / "tailored.json"
     if not tailored_json_path.exists():
-        print(f"Error: {tailored_json_path} not found. Run tools/customise_resume.py first.", file=sys.stderr)
+        print(f"Error: {tailored_json_path} not found. Stage 3 (customiser) must run first.", file=sys.stderr)
         sys.exit(1)
         
     with open(tailored_json_path, "r", encoding="utf-8") as f:

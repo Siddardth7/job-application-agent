@@ -34,13 +34,11 @@ flowchart LR
   - **Logistics & Integrity (10 pts)**: Location, recency, and verified employer status.
 - **Human Gate A**: You review the ranked shortlist (`.pipeline/ranked.md`) and select approved roles.
 
-### 3. Truth-Grounded Customization (`customiser` / `tools/customise_resume.py`)
-- **Truth-Only Customization**: All claims, bullet points, skills, and metrics are strictly grounded in your candidate database (`data/candidate_resume_database.json`). Never invents employers, credentials, or fake metrics.
+### 3. Truth-Grounded Customization (the `customiser` subagent)
+- **Truth-Only Customization**: Starts from your master `Resume/Final_Resumes/Resume_Master.tex` and reorders/rewords what is already there. Never invents employers, credentials, methods, or metrics; never renames an entry — the template wins over the playbook inventory.
 - **Dynamic Semantic Reordering**: Surfaces the most JD-relevant skills, experience bullet points, and project case studies.
-- **Strict Verification (`tools/verify_pdf.py`)**: Compiles via `pdflatex`, enforces strict 1-page limits, verifies ASCII date formatting, and inspects the extractable text layer for clean ATS parsing (no replacement glyphs or unescaped characters).
-- **Directory Hierarchy**:
-  - `Job_Applications_Resumes/<Month>/<YYYY-MM-DD>/Apply/`: Holds final verified PDFs ready for submission.
-  - `Job_Applications_Resumes/<Month>/<YYYY-MM-DD>/Archive/`: LaTeX source files, compilation logs, and build artifacts.
+- **Strict Verification**: A hard self-check gate diffs every output against its resolved track base (`tools/resolve_track.py`), compiles via `pdflatex`, and enforces exactly 1 page with 0 bad boxes and no company name in the resume.
+- **Output**: `Job_Applications_Resumes/<YYYY-MM-DD>/*.pdf` (submit these) and `src/*.tex` next to them.
 
 ### 4. Application Logging & Contact Discovery (`tools/log_and_refresh.py`)
 - **1-Click Recruiter & Team-Lead Links**: Generates instant LinkedIn people-search URLs for hiring managers and recruiters per role.
@@ -185,7 +183,7 @@ job-application-agent/
 │   ├── ats_scan.mjs          # Zero-token direct ATS board scanner
 │   ├── fetch_jobs.py         # Multi-pass job fetcher (ATS + Apify)
 │   ├── gate_and_score.py     # Hard ITAR/visa gating & 0-100 rubric scoring
-│   ├── customise_resume.py   # Truth-grounded LaTeX resume tailor
+│   ├── resolve_track.py      # Master → one resolved track base (customiser DEPTH gate)
 │   ├── portals.example.json  # Example ATS boards — /setup writes your own
 │   ├── verify_pdf.py         # LaTeX compiler & 1-page ATS PDF validator
 │   ├── log_and_refresh.py    # Tracker updater & contact link generator
