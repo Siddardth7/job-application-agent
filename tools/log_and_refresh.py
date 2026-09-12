@@ -169,20 +169,21 @@ def update_seen_jobs(records: list[dict]):
                 writer.writerow([rec["company"], rec["title"], rec.get("location", ""), url, today_str, "applied_pending"])
 
 def rebuild_tracker(dry_run: bool = False):
-    """Run ./refresh.sh --fetch to rebuild the HTML tracker artifact."""
+    """Sync the tracker's drop-notes into learning_log.md (./refresh.sh --fetch).
+    The tracker page itself reads Supabase live on every open, so the rows written
+    above are already visible — nothing to deploy."""
     if dry_run:
-        print("  [DRY-RUN] Skipping ./refresh.sh --fetch.")
+        print("  [DRY-RUN] Skipping ./refresh.sh --fetch (learning_log sync).")
         return
-        
-    print("\nRebuilding Tracker via ./refresh.sh --fetch...")
-    cmd = ["./refresh.sh", "--fetch"]
-    res = subprocess.run(cmd, cwd=str(ROOT_DIR), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    print("\nSyncing drop reviews into learning_log.md via ./refresh.sh --fetch...")
+    res = subprocess.run(["./refresh.sh", "--fetch"], cwd=str(ROOT_DIR), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if res.returncode == 0:
-        print("  Tracker rebuild successful.")
-        for line in res.stdout.splitlines()[-5:]:
+        for line in res.stdout.splitlines()[-3:]:
             print(f"    {line}")
+        print("  Done. Open (or reload) job_tracker.html — it reads Supabase live, nothing to upload.")
     else:
-        print(f"  Tracker rebuild warning: {res.stderr}", file=sys.stderr)
+        print(f"  learning_log sync warning: {res.stderr}", file=sys.stderr)
 
 def records_from_handoff(tailored_md: str, ranked: list[dict]) -> list[dict]:
     """

@@ -13,5 +13,6 @@ python3 tools/keyword_engine.py --audit
 python3 tools/gate_and_score.py --self-test
 python3 tools/resolve_track.py --self-test
 python3 tools/log_and_refresh.py --self-test
+python3 refresh.py --selftest
 node tools/ats_scan.mjs --self-test
 echo "check.sh: all green"

@@ -1,18 +1,11 @@
 #!/usr/bin/env bash
-# One-line artifact refresh for the Job Search Tracker.
-# Regenerates the Cowork artifact index.html (auto-deploys) from Supabase.
+# Regenerate the standalone tracker page (job_tracker.html) and, with --fetch, sync the
+# tracker's drop-notes into learning_log.md. The page itself reads Supabase live on every
+# open, so the daily run never needs to rebuild it — only write rows to Supabase.
 #
-# Usage:
-#   ./refresh.sh --fetch     # pull live from Supabase REST (needs SUPABASE_KEY in env or .env)
-#   ./refresh.sh             # rebuild from ./tracker_data.json (produced during the daily run)
-#
-# Put SUPABASE_KEY (service_role recommended) in a local .env next to this file; it is sourced
-# automatically and never committed. Example .env:
-#   SUPABASE_KEY=sb_secret_xxx   # or the service_role JWT
+#   ./refresh.sh            # write ./job_tracker.html (bookmark it)
+#   ./refresh.sh --fetch    # + sync drop reviews (needs SUPABASE_KEY in .env)
 set -euo pipefail
 cd "$(dirname "$0")"
 [ -f .env ] && set -a && . ./.env && set +a
 python3 refresh.py "$@"
-# The tracker has no push API on ChatGPT Sites: job_tracker.html is the page, upload it by hand.
-# Set TRACKER_SITE_URL in .env so this reminder names the live page.
-[ -n "${TRACKER_SITE_URL:-}" ] && echo "Live tracker page: $TRACKER_SITE_URL — upload ./job_tracker.html there to update it (no API)." || true

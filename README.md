@@ -109,20 +109,15 @@ silently discard most of your real market.
 
 ---
 
-## 🗄️ Supabase Backend & Interactive Tracker Artifact
+## 🗄️ Supabase Backend & the Standalone Tracker Page
 
-This framework includes an interactive dual-tab dashboard (`job_tracker.html` and `job_tracker.artifact.html`) backed by Supabase PostgreSQL:
+The tracker is **one HTML file you bookmark** — `job_tracker.html` — backed by Supabase PostgreSQL. No artifact, no hosting, no rebuild after each run:
 
-- **Interactive Dashboard**:
-  - **Applications View**: Track application status (`applied`, `interviewing`, `offer`, `rejected`), match scores (0–100), job requisition IDs, direct links, and follow-up deadlines.
-  - **Networking View**: Automated 1-click recruiter and team-lead LinkedIn outreach links, contact personas (`RECRUITER`, `SENIOR_MANAGER`), and touchpoint tracking.
-  - **Metrics Bar**: Visual conversion rates, total pipeline counts, and overdue reminders.
-- **Database Schema**: Full PostgreSQL definitions in [`supabase/schema.sql`](supabase/schema.sql) with custom ENUMs (`app_status_t`, `lane_t`, `outreach_status_t`), automatic `updated_at` triggers, RLS policies, and performance indexes.
-- **Live Sync & Hydration**:
-  - `tools/log_and_refresh.py` automatically POSTs approved roles and recruiter contacts to Supabase.
-  - `./refresh.sh --fetch` pulls live database state via REST and rebuilds the HTML artifact.
-  - In Claude Artifacts or Cowork, the page dynamically hydrates directly from Supabase.
-  - In offline mode, `./refresh.sh` builds the dashboard from local `tracker_data.json`.
+- **Live on every open**: the page reads `applications` + `contacts` over Supabase REST when you open it and writes status / note / outreach changes straight back. Any agent that writes rows to Supabase (Claude Code, Codex, Antigravity, a shell script) shows up on reload — one tracker for every tool you run the pipeline from.
+- **Key stays in your browser**: the file bakes only your project URL. On first open it asks for your Supabase key once and keeps it in `localStorage`, so the file is safe to copy or regenerate.
+- **Two tabs**: **Dashboard** (funnel KPIs, status distribution, recently found) and **Tracker** (every application with status dropdown, drop-review notes, resume + posting links, and per-row recruiter / team-lead LinkedIn searches; a Networking sub-table for named contacts).
+- **Database Schema**: [`supabase/schema.sql`](supabase/schema.sql) — ENUMs (`app_status_t`, `lane_t`, `outreach_status_t`), `updated_at` triggers, RLS, indexes.
+- **Daily loop**: `tools/log_and_refresh.py` POSTs approved roles and recruiter/team-lead links to Supabase; `./refresh.sh --fetch` only syncs tracker drop-notes into `learning_log.md`. `python3 refresh.py` regenerates the page when the template changes.
 
 ## 🖥️ Running the Pipeline
 
