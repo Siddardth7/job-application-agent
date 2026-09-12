@@ -4,6 +4,13 @@
 This workspace automates an agentic end-to-end job search pipeline across multiple sub-agents (Fetcher, Ranker, Customiser, Contact-Finder).
 Candidate profile configuration lives in `data/candidate_resume_database.json` and `Resume/Final_Resumes/Resume_Master.tex`.
 
+## One spec, every tool
+The role specs live in `.agents/skills/`, `.claude/agents/` and `.claude/commands/`. The Codex
+(`.codex/`) and Antigravity (`.agent/workflows/`, `.agent/rules/`) copies are **generated** by
+`python3 tools/sync_specs.py` — never edit them by hand; `tools/check.sh` fails when they drift.
+Supabase (`applications`, `seen_jobs`) is the state shared across machines and tools; see
+`DAILY_RUN.md` → "Running from more than one tool".
+
 ## First run: onboarding (required)
 A fresh clone is not personalized. Run `/setup` (Claude Code) — or follow `.claude/commands/setup.md`
 manually in Antigravity/Codex — before any pipeline stage. It reads the user's documents from

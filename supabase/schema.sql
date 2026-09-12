@@ -133,3 +133,28 @@ create policy "Enable read access for all users" on contacts
 drop policy if exists "Enable insert/update for all users" on contacts;
 create policy "Enable insert/update for all users" on contacts
   for all using (true) with check (true);
+
+-- 7. SEEN-JOB LEDGER (shared across machines and agent platforms)
+--------------------------------------------------------------------------------
+-- Every posting the ranker has scored, with its bucket as status, so a run on any
+-- machine / from any tool skips what another already dropped or shortlisted.
+-- tools/lib/ledger.py reads it on every run and upserts new rows after ranking;
+-- seen_jobs.csv stays as the local mirror (`python3 tools/lib/ledger.py --push` backfills it).
+create table if not exists seen_jobs (
+  key         text primary key,   -- cleaned job_url, else the company|title|city fingerprint
+  first_seen  date,
+  market      text,
+  company     text,
+  title       text,
+  city        text,
+  job_url     text,
+  fingerprint text,
+  status      text,               -- surfaced | shortlisted | unscored | dropped | applied_pending
+  req_id      text,
+  updated_at  timestamptz default now()
+);
+create index if not exists idx_seen_jobs_fingerprint on seen_jobs (fingerprint);
+create index if not exists idx_seen_jobs_status on seen_jobs (status);
+alter table seen_jobs enable row level security;
+drop policy if exists "seen_jobs all" on seen_jobs;
+create policy "seen_jobs all" on seen_jobs for all using (true) with check (true);

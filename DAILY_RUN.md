@@ -87,6 +87,28 @@ years required vs `candidate.max_years`) + **Logistics 5** (fresh, direct employ
 
 ---
 
+## Running from more than one tool (Claude Code · Codex · Antigravity)
+
+**One spec, three wrappers.** Edit only `.agents/skills/*/SKILL.md`, `.claude/agents/*.md` and
+`.claude/commands/*.md`. `python3 tools/sync_specs.py` regenerates `.claude/skills/`, `.codex/agents/*.toml`,
+`.codex/skills/*/SKILL.md` and `.agent/workflows/*.md` (Antigravity) from them; `tools/check.sh` fails
+if any wrapper is stale. Nothing in the specs is machine-specific (the networking-agent path is
+`NETWORKING_AGENT_DIR` in `.env`).
+
+**Supabase is the shared truth, not the checkout.** Three things cross machines and tools:
+`applications` (what was logged), `seen_jobs` (every posting any run ranked, with its bucket — so a run
+on another laptop or from another tool skips what this one dropped), and the tracker page reads both.
+`seen_jobs.csv` is only the local mirror; `python3 tools/lib/ledger.py --push` backfills it once.
+`job_id`s are allocated against the database: a collision with a concurrent run moves to the next id
+and says so, it never silently drops a row.
+
+**Alternating tools day to day** (Claude today, Codex tomorrow, any machine): supported as-is.
+
+**Running two tools at the same time:** use one checkout per tool — `git worktree add ../job-apps-codex`
+— because `.pipeline/`, `daily_run/<date>.md`, `Job_Applications_Resumes/<date>/` and `seen_jobs.csv` are
+per-checkout scratch and would overwrite each other. The database side (job ids, seen ledger, tracker)
+is already safe for concurrent runs.
+
 ## Source Contacts Place (where recruiter / team-lead links live)
 
 There is **one** contacts store: the Supabase **`contacts`** table in project `chsrkysjongzgdbwqhlu` (DB "linkedin-memory"). Do **not** invent a new location — this is where every recruiter and team-lead link must land, and it is what the tracker's Networking tab reads.

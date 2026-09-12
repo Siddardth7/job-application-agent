@@ -27,7 +27,8 @@ The Job Application Agent uses Supabase as a centralized cloud database of recor
 2. Click **"New query"**.
 3. Copy the entire contents of [`schema.sql`](./schema.sql) and paste it into the editor.
 4. Click **"Run"** (or press `Ctrl+Enter` / `Cmd+Enter`).
-   - This creates all necessary enums (`lane_t`, `app_status_t`, `outreach_status_t`), the `applications` table, the `contacts` table, triggers, indexes, and Row Level Security (RLS) policies.
+   - This creates all necessary enums (`lane_t`, `app_status_t`, `outreach_status_t`), the `applications`, `contacts` and `seen_jobs` tables, triggers, indexes, and Row Level Security (RLS) policies.
+   - **Already have a project from before 2026-09-12?** Run only section 7 of `schema.sql` (the `seen_jobs` ledger), then `python3 tools/lib/ledger.py --push` once to backfill it from your `seen_jobs.csv`.
 
 ### Step 3: Run Optional Seed Data
 1. In the SQL Editor, open another query tab.
