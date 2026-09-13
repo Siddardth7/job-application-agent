@@ -22,6 +22,8 @@ ENV_FILE = ROOT_DIR / ".env"
 # Reuse the single contacts upsert (Supabase `contacts` table) instead of a
 # second copy. networking_sheet lives at the repo root.
 sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(ROOT_DIR / "tools"))
+from lib import ledger  # noqa: E402
 
 def load_env():
     """Load key-value pairs from .env into os.environ."""
@@ -70,13 +72,12 @@ def insert_to_supabase(records: list[dict], dry_run: bool = False) -> int:
     print(f"Current highest job_id index for today: ja-{month_day}-{max_idx:02d} ({len(existing_sigs)} existing roles).")
     
     inserted_count = 0
-    headers = {
-        "apikey": key,
-        "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json",
-        "Prefer": "resolution=ignore-duplicates"
-    }
-    
+    # No `resolution=ignore-duplicates`: a job_id collision must be LOUD. Two runs (two
+    # tools, two machines) can read the same max index; the loser used to have its row
+    # silently discarded. Now a duplicate key just moves on to the next index.
+    headers = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json",
+               "Prefer": "return=minimal"}
+
     current_idx = max_idx
     contact_sources = []  # inserted rows, stamped with job_id, for contacts upsert
     for rec in records:
@@ -85,50 +86,55 @@ def insert_to_supabase(records: list[dict], dry_run: bool = False) -> int:
             print(f"  Skipping already existing in Supabase: {rec.get('company')} — {rec.get('title')}")
             continue
 
-        current_idx += 1
-        job_id = f"ja-{month_day}-{current_idx:02d}"
-        contact_sources.append({**rec, "job_id": job_id})
+        def payload_for(job_id: str) -> list[dict]:
+            return [{
+                "job_id": job_id,
+                "company": rec["company"],
+                "role": rec["title"],
+                "location": rec.get("location", "United States"),
+                "lane": "direct-apply",
+                "score": rec.get("score", 50),
+                "track": "T1",   # tracks retired 2026-09-09; one lane, one score
+                "resume": rec.get("resume_file", "resume_default"),
+                "job_url": rec.get("link", rec.get("apply_url", "")),
+                "found_date": today_str,
+                "referral_state": "direct-apply",
+                "status": "pending",
+                "notes": f"[Direct Apply] Resume {rec.get('resume_file', '')} compiled.",
+            }]
 
-        # Two-track model (matches tools/gate_and_score.py): T2 = Curated Target
-        # lane (anchor companies + top-domain fit), T1 = Broad-Fit Direct Apply.
-        # T3 is retired — it was the old three-track era and is what left ~150
-        # historical rows mis-tagged. Drive the tag off the scorer's lane, not the
-        # fetch-time domain label.
-        lane_val = "direct-apply"
-        track_val = "T1"   # tracks retired 2026-09-09; one lane, one score
-        tag = "[Direct Apply]"
-        
-        payload = [{
-            "job_id": job_id,
-            "company": rec["company"],
-            "role": rec["title"],
-            "location": rec.get("location", "United States"),
-            "lane": lane_val,
-            "score": rec.get("score", 50),
-            "track": track_val,
-            "resume": rec.get("resume_file", "resume_default"),
-            "job_url": rec.get("link", rec.get("apply_url", "")),
-            "found_date": today_str,
-            "referral_state": "direct-apply",
-            "status": "pending",
-            "notes": f"{tag} 45-Day Sprint — Resume {rec.get('resume_file', '')} compiled."
-        }]
-        
         if dry_run:
+            current_idx += 1
+            job_id = f"ja-{month_day}-{current_idx:02d}"
+            contact_sources.append({**rec, "job_id": job_id})
             print(f"  [DRY-RUN] Would insert into Supabase: {job_id} | {rec['company']} | {rec['title']}")
             inserted_count += 1
             continue
-            
-        req = urllib.request.Request(endpoint, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
-        try:
-            with urllib.request.urlopen(req) as resp:
-                if resp.status in (200, 201):
-                    inserted_count += 1
-                    print(f"  Inserted into Supabase: {job_id} | {rec['company']} | {rec['title']}")
-        except urllib.error.HTTPError as e:
-            print(f"  HTTP error inserting {rec['company']}: {e.code} - {e.read().decode('utf-8')}", file=sys.stderr)
-        except Exception as e:
-            print(f"  Error inserting {rec['company']}: {e}", file=sys.stderr)
+
+        for _attempt in range(50):
+            current_idx += 1
+            job_id = f"ja-{month_day}-{current_idx:02d}"
+            req = urllib.request.Request(endpoint, data=json.dumps(payload_for(job_id)).encode("utf-8"),
+                                         headers=headers, method="POST")
+            try:
+                with urllib.request.urlopen(req) as resp:
+                    if resp.status in (200, 201):
+                        inserted_count += 1
+                        contact_sources.append({**rec, "job_id": job_id})
+                        print(f"  Inserted into Supabase: {job_id} | {rec['company']} | {rec['title']}")
+                break
+            except urllib.error.HTTPError as e:
+                body = e.read().decode("utf-8", errors="ignore")
+                if e.code == 409 or "23505" in body:      # another run took this id — try the next one
+                    print(f"  {job_id} already taken by a concurrent run, retrying with the next id")
+                    continue
+                print(f"  HTTP error inserting {rec['company']}: {e.code} - {body}", file=sys.stderr)
+                break
+            except Exception as e:
+                print(f"  Error inserting {rec['company']}: {e}", file=sys.stderr)
+                break
+        else:
+            print(f"  Gave up allocating a job_id for {rec['company']} after 50 collisions", file=sys.stderr)
 
     # Persist the 1-click recruiter + team-lead people-search links into the
     # source-of-truth contacts table (Supabase `contacts`), keyed to each new
@@ -161,28 +167,35 @@ def update_seen_jobs(records: list[dict]):
                 if "http" in line:
                     existing_urls.add(line.strip())
                     
+    pushed = []
     with open(SEEN_JOBS_CSV, mode="a", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         for rec in records:
             url = rec.get("link") or rec.get("apply_url") or ""
             if url and url not in existing_urls:
                 writer.writerow([rec["company"], rec["title"], rec.get("location", ""), url, today_str, "applied_pending"])
+                pushed.append({"first_seen_date": today_str, "market": "US", "company": rec["company"], "title": rec["title"],
+                               "city": rec.get("location", ""), "job_url": url,
+                               "fingerprint": ledger.fingerprints(rec["company"], rec["title"])[0],
+                               "status": "applied_pending", "req_id": rec.get("req_id", "")})
+    ledger.push_rows(pushed)   # shared ledger: other machines / tools see these as applied
 
 def rebuild_tracker(dry_run: bool = False):
-    """Run ./refresh.sh --fetch to rebuild the HTML tracker artifact."""
+    """Sync the tracker's drop-notes into learning_log.md (./refresh.sh --fetch).
+    The tracker page itself reads Supabase live on every open, so the rows written
+    above are already visible — nothing to deploy."""
     if dry_run:
-        print("  [DRY-RUN] Skipping ./refresh.sh --fetch.")
+        print("  [DRY-RUN] Skipping ./refresh.sh --fetch (learning_log sync).")
         return
-        
-    print("\nRebuilding Tracker via ./refresh.sh --fetch...")
-    cmd = ["./refresh.sh", "--fetch"]
-    res = subprocess.run(cmd, cwd=str(ROOT_DIR), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    print("\nSyncing drop reviews into learning_log.md via ./refresh.sh --fetch...")
+    res = subprocess.run(["./refresh.sh", "--fetch"], cwd=str(ROOT_DIR), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if res.returncode == 0:
-        print("  Tracker rebuild successful.")
-        for line in res.stdout.splitlines()[-5:]:
+        for line in res.stdout.splitlines()[-3:]:
             print(f"    {line}")
+        print("  Done. Open (or reload) job_tracker.html — it reads Supabase live, nothing to upload.")
     else:
-        print(f"  Tracker rebuild warning: {res.stderr}", file=sys.stderr)
+        print(f"  learning_log sync warning: {res.stderr}", file=sys.stderr)
 
 def records_from_handoff(tailored_md: str, ranked: list[dict]) -> list[dict]:
     """

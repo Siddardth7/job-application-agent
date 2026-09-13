@@ -27,7 +27,8 @@ The Job Application Agent uses Supabase as a centralized cloud database of recor
 2. Click **"New query"**.
 3. Copy the entire contents of [`schema.sql`](./schema.sql) and paste it into the editor.
 4. Click **"Run"** (or press `Ctrl+Enter` / `Cmd+Enter`).
-   - This creates all necessary enums (`lane_t`, `app_status_t`, `outreach_status_t`), the `applications` table, the `contacts` table, triggers, indexes, and Row Level Security (RLS) policies.
+   - This creates all necessary enums (`lane_t`, `app_status_t`, `outreach_status_t`), the `applications`, `contacts` and `seen_jobs` tables, triggers, indexes, and Row Level Security (RLS) policies.
+   - **Already have a project from before 2026-09-12?** Run only section 7 of `schema.sql` (the `seen_jobs` ledger), then `python3 tools/lib/ledger.py --push` once to backfill it from your `seen_jobs.csv`.
 
 ### Step 3: Run Optional Seed Data
 1. In the SQL Editor, open another query tab.
@@ -123,22 +124,31 @@ Stores all hiring managers, recruiters, and alumni contacts:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Rebuilding the Tracker Dashboard:
+### The Tracker Page:
 ```bash
-# Pull live records from Supabase and regenerate the HTML artifact:
-./refresh.sh --fetch
+# Write job_tracker.html once, then bookmark it. It reads Supabase live on every open
+# and writes edits straight back — no rebuild after runs, no artifact, no hosting.
+python3 refresh.py
 
-# Or build from local tracker_data.json offline:
-./refresh.sh
+# Sync the tracker's drop-review notes into learning_log.md (the daily run does this):
+./refresh.sh --fetch
 ```
+The page asks for your Supabase key on first open and keeps it in the browser's
+`localStorage`. The service_role key works as-is (it bypasses RLS). To use the
+anon/publishable key instead, add policies granting `anon` select + update on
+`applications` and `contacts`.
 
 ---
 
-## 🎨 The Interactive Artifact Dashboard (`job_tracker.html`)
+## 🎨 The Tracker Page (`job_tracker.html`)
 
-The compiled tracker in `job_tracker.html` provides:
-- **Metrics Bar**: Total applications, pipeline conversion rates, interview counts, and pending follow-ups.
-- **Dual Views**:
-  - **Applications Tab**: Filter by status, track, search by title/company, view scores and direct links.
-  - **Networking Tab**: 1-click reach-out links, persona badges, and outreach stages.
-- **Offline + Live Mode**: Opens as a standalone HTML file in any browser, or in Claude as an interactive Artifact that can query Supabase directly via MCP!
+A standalone page you bookmark. It reads the `applications` table live on every open and writes
+status / note edits straight back — no rebuild, no artifact, no hosting.
+- **Dashboard**: sourced / applied / shortlisted / interviews / rejected / overdue, distribution by
+  status, lane and track, recently found.
+- **Tracker**: a dense spreadsheet of every application (sticky header, row numbers, colored status
+  cells, sort by any column, filter by status / lane / track / score / search). Each row expands to
+  the posting link, resume, follow-up, a drop-review note, and the recruiter / team-lead LinkedIn
+  searches generated from the company and role.
+- Networking is **not** tracked in the page. The `contacts` table still receives the people-search
+  links from Stage 4 for any other tooling that wants them.

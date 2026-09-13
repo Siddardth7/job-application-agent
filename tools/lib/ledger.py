@@ -171,14 +171,12 @@ def load_seen(csv_path: Path = SEEN_JOBS_CSV, supabase: bool = True) -> Seen:
         except Exception as e:
             print(f"Warning reading {csv_path.name}: {e}", file=sys.stderr)
 
-    load_env()
-    supa_url = os.environ.get("SUPABASE_URL", "")
-    supa_key = os.environ.get("SUPABASE_KEY", "")
-    if supabase and supa_url and supa_key:
+    supa_url, supa_key = _supabase()
+    if supabase and supa_url:
+        hdr = {"apikey": supa_key, "Authorization": f"Bearer {supa_key}"}
+        # Logged applications: what was actually applied to.
         try:
-            req = urllib.request.Request(
-                f"{supa_url}/rest/v1/applications?select=company,role,job_url",
-                headers={"apikey": supa_key, "Authorization": f"Bearer {supa_key}"})
+            req = urllib.request.Request(f"{supa_url}/rest/v1/applications?select=company,role,job_url", headers=hdr)
             with urllib.request.urlopen(req, timeout=10) as resp:
                 for app in json.loads(resp.read().decode("utf-8")):
                     seen.add(app.get("company") or "", app.get("role") or "", app.get("job_url") or "")
@@ -186,7 +184,86 @@ def load_seen(csv_path: Path = SEEN_JOBS_CSV, supabase: bool = True) -> Seen:
                         seen.applied_urls.add(clean_url(app["job_url"]))
         except Exception as e:
             print(f"Warning syncing seen ledger from Supabase: {e}", file=sys.stderr)
+        # The shared seen ledger: everything any machine / tool has ranked (dropped or not).
+        try:
+            req = urllib.request.Request(
+                f"{supa_url}/rest/v1/{SEEN_TABLE}?select=company,title,job_url,req_id,fingerprint,status&limit=100000", headers=hdr)
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                for r in json.loads(resp.read().decode("utf-8")):
+                    seen.add(r.get("company") or "", r.get("title") or "", r.get("job_url") or "", r.get("req_id") or "")
+                    if r.get("job_url") and (r.get("status") or "").startswith("applied"):
+                        seen.applied_urls.add(clean_url(r["job_url"]))
+                    fp = r.get("fingerprint") or ""
+                    if "|" in fp:
+                        seen.fps.add(re.sub(r'[^a-z0-9|]', '', fp.lower()))
+        except Exception as e:
+            print(f"Warning reading {SEEN_TABLE} from Supabase: {e}", file=sys.stderr)
     return seen
+
+
+# ── Shared ledger (Supabase seen_jobs) ──────────────────────────────────────
+# seen_jobs.csv is per machine; the table is what lets a run from another laptop or
+# another agent platform skip what this one already dropped. Writes are upserts on
+# `key` so re-pushing is harmless.
+SEEN_TABLE = "seen_jobs"
+
+
+def _supabase() -> tuple[str | None, str | None]:
+    load_env()
+    u, k = os.environ.get("SUPABASE_URL", "").rstrip("/"), os.environ.get("SUPABASE_KEY", "")
+    return (u, k) if u and k else (None, None)
+
+
+def push_rows(rows: list[dict]) -> int:
+    """Upsert ledger rows (dated-layout dicts) to Supabase seen_jobs. Returns rows sent,
+    0 when Supabase is not configured. Never raises — the CSV write already happened."""
+    u, k = _supabase()
+    if not u or not rows:
+        return 0
+    payload = []
+    for r in rows:
+        key = clean_url(r.get("job_url") or "") or (r.get("fingerprint") or "")
+        if not key:
+            continue
+        payload.append({"key": key, "first_seen": r.get("first_seen_date") or None, "market": r.get("market"),
+                        "company": r.get("company"), "title": r.get("title"), "city": r.get("city"),
+                        "job_url": r.get("job_url") or None, "fingerprint": r.get("fingerprint"),
+                        "status": r.get("status"), "req_id": r.get("req_id") or None})
+    sent = 0
+    for i in range(0, len(payload), 500):
+        chunk = payload[i:i + 500]
+        try:
+            req = urllib.request.Request(
+                f"{u}/rest/v1/{SEEN_TABLE}?on_conflict=key", data=json.dumps(chunk).encode("utf-8"), method="POST",
+                headers={"apikey": k, "Authorization": f"Bearer {k}", "Content-Type": "application/json",
+                         "Prefer": "resolution=merge-duplicates,return=minimal"})
+            with urllib.request.urlopen(req, timeout=30):
+                sent += len(chunk)
+        except Exception as e:
+            print(f"Warning pushing seen ledger to Supabase: {e}", file=sys.stderr)
+    return sent
+
+
+def csv_rows(path: Path = SEEN_JOBS_CSV) -> list[dict]:
+    """seen_jobs.csv as dated-layout dicts (legacy rows are converted)."""
+    out = []
+    if not path.exists():
+        return out
+    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+        reader = csv.reader(f)
+        header = next(reader, None) or []
+        for row in reader:
+            if not row:
+                continue
+            if row[0][:4].isdigit() and len(row) >= 8:
+                d = dict(zip(["first_seen_date", "market", "company", "title", "city", "job_url", "fingerprint", "status", "req_id"], row))
+            elif len(row) >= 6:                      # legacy: company,title,location,url,date,status
+                d = {"first_seen_date": row[4], "market": "US", "company": row[0], "title": row[1], "city": row[2],
+                     "job_url": row[3], "fingerprint": fingerprints(row[0], row[1])[0], "status": row[5], "req_id": ""}
+            else:
+                continue
+            out.append(d)
+    return out
 
 
 def demo() -> None:
@@ -201,8 +278,26 @@ def demo() -> None:
     assert s.match({"company": "Other", "title": "X", "link": "https://q", "req_id": "r-1"}) != ""      # req id
     assert s.match({"company": "Other", "title": "X", "link": "https://a.com/jobs/12345678"}) != ""   # job id
     assert s.match({"company": "New Co", "title": "Process Engineer", "link": "https://n"}) == ""
+    # csv_rows understands both layouts; push_rows is a no-op without Supabase config.
+    import tempfile
+    p = Path(tempfile.mkdtemp()) / "seen.csv"
+    p.write_text("first_seen_date,market,company,title_normalized,city,job_url,fingerprint,status,req_id\n"
+                 "2026-09-01,US,Acme,quality engineer,austin,https://a.com/j/1,acme|quality engineer|austin,dropped,R-1\n"
+                 "Beta,Process Engineer,Boise,https://b.com/j/2,2026-09-02,applied_pending\n")
+    rows = csv_rows(p)
+    assert [r["company"] for r in rows] == ["Acme", "Beta"] and rows[1]["status"] == "applied_pending", rows
+    assert rows[1]["fingerprint"].startswith("beta|"), rows[1]
+    g = globals(); real = g["_supabase"]; g["_supabase"] = lambda: (None, None)   # never touch the live table from a test
+    try:
+        assert push_rows(rows) == 0
+    finally:
+        g["_supabase"] = real
     print("OK  ledger self-check passed")
 
 
 if __name__ == "__main__":
+    if "--push" in sys.argv:      # one-time backfill: mirror seen_jobs.csv into Supabase seen_jobs
+        rows = csv_rows()
+        print(f"pushed {push_rows(rows)} of {len(rows)} ledger rows to Supabase {SEEN_TABLE}")
+        sys.exit(0)
     demo()

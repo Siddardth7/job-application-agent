@@ -543,7 +543,7 @@ def append_ledger(rows: list[dict], today: str) -> int:
         if "req_id" not in first:
             path.write_text(first.rstrip() + ",req_id\n" + rest, encoding="utf-8")
     existing = ledger.load_seen(path, supabase=False)
-    n = 0
+    new_rows = []
     with open(path, "a", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
         for r in rows:
@@ -556,10 +556,14 @@ def append_ledger(rows: list[dict], today: str) -> int:
                       "Needs JD": "unscored", "Drop": "dropped"}[r["bucket"]]
             market = "INTL" if (r.get("source") or "").endswith("intl") else "US"
             fp = ledger.fingerprints(r.get("company", ""), r.get("title", ""))[0]
-            w.writerow([today, market, r.get("company", ""), (r.get("title") or "").lower(),
-                        r.get("location", ""), url, fp, status, r.get("req_id", "")])
-            n += 1
-    return n
+            row = {"first_seen_date": today, "market": market, "company": r.get("company", ""),
+                   "title": (r.get("title") or "").lower(), "city": r.get("location", ""), "job_url": url,
+                   "fingerprint": fp, "status": status, "req_id": r.get("req_id", "")}
+            w.writerow([row[k] for k in ("first_seen_date", "market", "company", "title", "city", "job_url", "fingerprint", "status", "req_id")])
+            new_rows.append(row)
+    # Mirror to the shared Supabase ledger so other machines / tools skip these too.
+    ledger.push_rows(new_rows)
+    return len(new_rows)
 
 
 # ── Rendering ───────────────────────────────────────────────────────────────

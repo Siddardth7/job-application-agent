@@ -2,6 +2,8 @@
 
 Last updated: 2026-08-10. Cockpit root: `/Users/sid/Documents/Claude/Projects/Job_Applications`.
 
+> ⚠️ **2026-09-12: everything below about the tracker (Cowork artifact, `index.html`, `job_tracker.artifact.html`, `tracker_data.json`, `./refresh.sh --fetch` as a deploy step, the `Artifact` tool) is OBSOLETE.** The tracker is now `job_tracker.html`, a standalone page that reads Supabase live on every open; Stage 4 only writes rows. See `DAILY_RUN.md` Stage 4.
+>
 > ⚠️ **SUPERSEDED FOR THE FORTIFY SPRINT.** The current source of truth is **`AGENTS.md`** + **`DAILY_RUN.md`** (dual-track automated fetch, global scope, contacts auto-persisted). This file is the older 2026-08-13 hand-picked-JD / single-lane / "networking is Sid's" playbook — kept for reference. Where the two disagree, follow AGENTS.md. Specifically, two rules below are **OVERRIDDEN**: the GEO GATE (search is now global — US + Europe + Australia; see `fetch_jobs.py --pass=4`) and "Networking is Sid's / never source a contact" (recruiter + team-lead people-search **links** now auto-persist to the Supabase `contacts` table via Stage 4 — Sid still does every outreach/send).
 
 ---

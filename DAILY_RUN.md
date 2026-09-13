@@ -70,17 +70,44 @@ years required vs `candidate.max_years`) + **Logistics 5** (fresh, direct employ
 - **Handoff**: `.pipeline/tailored.md` (job → resume map + 3-line change summaries + gate results).
   `.pipeline/tailored.json` (what Stage 4 reads) is an open contract — see `docs/audits/` item 1.
 
-### Stage 4: Supabase Sync & Artifact Rebuild (`python3 tools/log_and_refresh.py`)
+### Stage 4: Supabase Sync (`python3 tools/log_and_refresh.py`)
 - Inserts application records to Supabase `applications` table (two-track: **T1 Broad-Fit / T2 Curated Target** — T3 is retired).
 - **Persists the 1-click recruiter + team-lead LinkedIn people-search links to the Supabase `contacts` table** — the source-of-truth "contacts place" — keyed to each new `job_id` (recruiter → persona `RECRUITER`, team lead → persona `SENIOR_MANAGER`). This happens automatically here; no separate step needed. See **Source Contacts Place** below.
 - Appends new URLs to `seen_jobs.csv`.
 - Builds `.pipeline/tailored.json` itself from the customiser's `tailored.md` table + `ranked.json` (no stage writes it by hand).
-- Executes `./refresh.sh --fetch` (MANDATORY: pulls live database state to rebuild `job_tracker.html`, the Cowork `index.html` mirror, and `job_tracker.artifact.html`).
-- **Deploy target:** the live tracker is the ChatGPT Sites page in `TRACKER_SITE_URL` (`.env`). It has no push API — after the rebuild, **upload `job_tracker.html` to it by hand**; `refresh.sh` prints the reminder. Supabase stays the source of truth; the HTML is a view.
+- Runs `./refresh.sh --fetch`, which only syncs tracker drop-notes into `learning_log.md`.
+- **There is no tracker deploy step.** The tracker is `job_tracker.html`, a standalone page you bookmark
+  (generated once by `python3 refresh.py`, or by `/setup`). It reads `applications` + `contacts` from
+  Supabase over REST **every time it is opened** and writes status / note / outreach edits straight back,
+  so any run from any agent (Claude Code, Codex, Antigravity, a shell) that writes rows to Supabase is
+  already visible on reload. No artifact, no upload, no rebuild. The key is pasted once into the page
+  and lives in the browser, never in the file.
 - Exports high-score networking sheet via `python3 networking_sheet.py export --date <today>` if qualifying roles exist.
 - 🧑 **GATE B**: you receives the verified PDFs and apply links to submit directly.
 
 ---
+
+## Running from more than one tool (Claude Code · Codex · Antigravity)
+
+**One spec, three wrappers.** Edit only `.agents/skills/*/SKILL.md`, `.claude/agents/*.md` and
+`.claude/commands/*.md`. `python3 tools/sync_specs.py` regenerates `.claude/skills/`, `.codex/agents/*.toml`,
+`.codex/skills/*/SKILL.md` and `.agent/workflows/*.md` (Antigravity) from them; `tools/check.sh` fails
+if any wrapper is stale. Nothing in the specs is machine-specific (the networking-agent path is
+`NETWORKING_AGENT_DIR` in `.env`).
+
+**Supabase is the shared truth, not the checkout.** Three things cross machines and tools:
+`applications` (what was logged), `seen_jobs` (every posting any run ranked, with its bucket — so a run
+on another laptop or from another tool skips what this one dropped), and the tracker page reads both.
+`seen_jobs.csv` is only the local mirror; `python3 tools/lib/ledger.py --push` backfills it once.
+`job_id`s are allocated against the database: a collision with a concurrent run moves to the next id
+and says so, it never silently drops a row.
+
+**Alternating tools day to day** (Claude today, Codex tomorrow, any machine): supported as-is.
+
+**Running two tools at the same time:** use one checkout per tool — `git worktree add ../job-apps-codex`
+— because `.pipeline/`, `daily_run/<date>.md`, `Job_Applications_Resumes/<date>/` and `seen_jobs.csv` are
+per-checkout scratch and would overwrite each other. The database side (job ids, seen ledger, tracker)
+is already safe for concurrent runs.
 
 ## Source Contacts Place (where recruiter / team-lead links live)
 
