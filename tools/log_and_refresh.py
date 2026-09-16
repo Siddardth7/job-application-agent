@@ -209,7 +209,10 @@ def records_from_handoff(tailored_md: str, ranked: list[dict]) -> list[dict]:
               for r in ranked}
     out, missing = [], []
     for line in tailored_md.splitlines():
-        cells = [c.strip().strip("`*").strip() for c in line.strip().strip("|").split("|")]
+        # a literal "|" inside a cell (e.g. a company name) must be escaped "\|"
+        # by the customiser so it isn't mistaken for a column separator here.
+        escaped = line.strip().strip("|").replace("\\|", "\x00")
+        cells = [c.strip().strip("`*").strip().replace("\x00", "|") for c in escaped.split("|")]
         if len(cells) < 6 or not cells[0].isdigit():
             continue
         _, company, title, _track, tex, pdf = cells[:6]
