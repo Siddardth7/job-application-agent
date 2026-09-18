@@ -158,7 +158,7 @@ REQUIREMENT_SENTENCE_RE = re.compile(
 # "may require a license", "offer contingent on a license", "if we determine": the
 # employer is saying it hires non-US persons when it can. That is a caution to read
 # at Gate A, not a drop.
-CONDITIONAL_RE = re.compile(r'(?i)\b(?:may|might|could)\s+(?:be\s+)?(?:require|necessary|need)|contingent|if\s+\w+\s+determines|eligible\s+for\s+(?:government\s+)?authori')
+CONDITIONAL_RE = re.compile(r'(?i)\b(?:may|might|could)\s+(?:be\s+)?(?:require|necessary|need|have\s+to)|contingent|if\s+\w+\s+determines|eligible\s+for\s+(?:government\s+)?authori')
 RESIDENCY_PATTERNS = [
     (r'(?i)\b(?:residents?\s+only|only\s+residents?)\b', "Local residency only"),
     (r'(?i)\b(?:woonachtig\s+in|inwoners?\s+van)\b', "Local residency only"),
@@ -224,6 +224,13 @@ def check_eligibility_gate(job: dict, cfg: dict) -> tuple[bool, str, str, list[s
             if mode == "rescuable" and POSITIVE_SPONSOR_RE.search(sentence):
                 caution(f"{label} mentioned but not restrictive: \"{sentence[:160]}\"")
                 continue
+            if mode == "rescuable":
+                # "except US citizens ... as defined by 8 U.S.C. ... may have to go through an export licensing
+                # review": conditional, not a bar. Fixed char window because "8 U.S.C." breaks sentence splitting.
+                window = " ".join(full_text[m.start():m.end() + 200].split())
+                if CONDITIONAL_RE.search(window):
+                    caution(f"{label} is conditional (license / case-by-case), read before applying: \"{window[:200]}\"")
+                    continue
             if mode == "requirement":
                 window = _sentence_around(full_text, m.start(), m.end(), following=1)
                 if not REQUIREMENT_SENTENCE_RE.search(window):
@@ -736,6 +743,8 @@ def run_self_test() -> int:
     check("'may require a license' is CAUTION not gate", g(description="This role may require access to export controlled information. Applicants must be authorized or eligible for government authorization. " + jd_ok)[0])
     check("'does not sponsor' gates", not g(description="We do not sponsor work visas. " + jd_ok)[0])
     check("welcoming citizenship mention is CAUTION", g(description="US citizens and visa holders welcome. " + jd_ok)[0])
+    check("conditional citizenship (licensing review) is CAUTION not gate", g(description="Applicants for this position - except US Citizens and protected individuals as defined by 8 U.S.C. 1324b(a)(3) - may have to go through an export licensing review process. " + jd_ok)[0])
+    check("hard citizenship still gates", not g(description="U.S. citizenship is required for this position. " + jd_ok)[0])
     check("'ear protection' does not trip EAR", g(description="PPE: ear protection. " + jd_ok)[0])
     check("company gate from config", not g(company="NoSponsor Corp")[0])
     check("needs_sponsorship=false skips visa gates", check_eligibility_gate(job(company="NoSponsor Corp"), build_cfg({**_test_profile(), "candidate": {"needs_sponsorship": False}}))[0])
