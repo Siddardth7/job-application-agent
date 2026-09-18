@@ -14,6 +14,7 @@ copy. Keys a posting can be recognised by, strongest first:
 seen_jobs.csv layouts accepted (header row is skipped, cells are sniffed):
   first_seen_date,market,company,title_normalized,city,job_url,fingerprint,status[,req_id]
   company,title,location,url,date,status                       (legacy writer)
+  url,job_id,status,date,company,title                         (legacy 2026-08 writer)
 """
 
 from __future__ import annotations
@@ -220,15 +221,16 @@ def push_rows(rows: list[dict]) -> int:
     u, k = _supabase()
     if not u or not rows:
         return 0
-    payload = []
+    by_key: dict[str, dict] = {}   # one row per key per request, last wins — Postgres rejects a duplicate key inside one upsert
     for r in rows:
         key = clean_url(r.get("job_url") or "") or (r.get("fingerprint") or "")
         if not key:
             continue
-        payload.append({"key": key, "first_seen": r.get("first_seen_date") or None, "market": r.get("market"),
-                        "company": r.get("company"), "title": r.get("title"), "city": r.get("city"),
-                        "job_url": r.get("job_url") or None, "fingerprint": r.get("fingerprint"),
-                        "status": r.get("status"), "req_id": r.get("req_id") or None})
+        by_key[key] = {"key": key, "first_seen": r.get("first_seen_date") or None, "market": r.get("market"),
+                       "company": r.get("company"), "title": r.get("title"), "city": r.get("city"),
+                       "job_url": r.get("job_url") or None, "fingerprint": r.get("fingerprint"),
+                       "status": r.get("status"), "req_id": r.get("req_id") or None}
+    payload = list(by_key.values())
     sent = 0
     for i in range(0, len(payload), 500):
         chunk = payload[i:i + 500]
@@ -257,6 +259,9 @@ def csv_rows(path: Path = SEEN_JOBS_CSV) -> list[dict]:
                 continue
             if row[0][:4].isdigit() and len(row) >= 8:
                 d = dict(zip(["first_seen_date", "market", "company", "title", "city", "job_url", "fingerprint", "status", "req_id"], row))
+            elif row[0].startswith("http") and len(row) >= 6:   # legacy 2026-08: url,job_id,status,date,company,title
+                d = {"first_seen_date": row[3], "market": "US", "company": row[4], "title": row[5], "city": "",
+                     "job_url": row[0], "fingerprint": fingerprints(row[4], row[5])[0], "status": row[2], "req_id": ""}
             elif len(row) >= 6:                      # legacy: company,title,location,url,date,status
                 d = {"first_seen_date": row[4], "market": "US", "company": row[0], "title": row[1], "city": row[2],
                      "job_url": row[3], "fingerprint": fingerprints(row[0], row[1])[0], "status": row[5], "req_id": ""}
@@ -283,9 +288,11 @@ def demo() -> None:
     p = Path(tempfile.mkdtemp()) / "seen.csv"
     p.write_text("first_seen_date,market,company,title_normalized,city,job_url,fingerprint,status,req_id\n"
                  "2026-09-01,US,Acme,quality engineer,austin,https://a.com/j/1,acme|quality engineer|austin,dropped,R-1\n"
-                 "Beta,Process Engineer,Boise,https://b.com/j/2,2026-09-02,applied_pending\n")
+                 "Beta,Process Engineer,Boise,https://b.com/j/2,2026-09-02,applied_pending\n"
+                 "https://c.com/j/3,ja-0810,pending,2026-08-10,Gamma,Quality Engineer\n")
     rows = csv_rows(p)
-    assert [r["company"] for r in rows] == ["Acme", "Beta"] and rows[1]["status"] == "applied_pending", rows
+    assert [r["company"] for r in rows] == ["Acme", "Beta", "Gamma"] and rows[1]["status"] == "applied_pending", rows
+    assert rows[2]["first_seen_date"] == "2026-08-10" and rows[2]["job_url"] == "https://c.com/j/3", rows[2]
     assert rows[1]["fingerprint"].startswith("beta|"), rows[1]
     g = globals(); real = g["_supabase"]; g["_supabase"] = lambda: (None, None)   # never touch the live table from a test
     try:
