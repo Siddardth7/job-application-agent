@@ -99,6 +99,7 @@ def build_cfg(profile: dict | None = None) -> dict:
     return {"scoring": sc, "candidate": cand,
             "domains": profile.get("domains") or [], "default_domain": profile.get("default_domain", "Uncategorized"),
             "known_non_sponsors": profile.get("known_non_sponsors") or {},
+            "known_itar_flags": profile.get("known_itar_flags") or {},
             "known_sponsors": profile.get("known_sponsors") or {},
             "staffing_agencies": [a.lower() for a in profile.get("staffing_agencies") or []],
             "anchors": [a.lower() for a in profile.get("target_anchors") or []]}
@@ -136,6 +137,7 @@ VISA_ITAR_PATTERNS = [
     (r'(?i)(?:does|do|will|can|cannot)\s+not?\s+(?:provide|offer|support|extend)\s+(?:\w+\s+){0,3}?sponsorship', "No visa sponsorship", "hard"),
     (r'(?i)\bno\s+(?:visa\s+|immigration\s+|work\s+visa\s+|employment\s+|h-?1b\s+)?sponsorship\b', "No visa sponsorship", "hard"),
     (r'(?i)sponsorship\s+(?:is|will)\s+not\s+(?:be\s+)?(?:available|offered|provided|considered)', "No visa sponsorship", "hard"),
+    (r'(?i)not\s+eligible\s+for\s+(?:[\w-]+\s+){0,4}?sponsorship', "No visa sponsorship", "hard"),
     (r'(?i)without\s+(?:the\s+need\s+for\s+)?(?:visa\s+|company\s+|employer\s+|current\s+or\s+future\s+)?sponsorship', "Must work without sponsorship", "hard"),
     (r'(?i)authoriz\w+\s+to\s+work[^.]{0,80}?without\s+(?:visa\s+)?sponsorship', "Must work without sponsorship", "hard"),
     (r'(?i)\b(?:itar|ear99|defense\s+trade\s+controls|deemed\s+export)\b', "ITAR / export control", "requirement"),
@@ -216,6 +218,10 @@ def check_eligibility_gate(job: dict, cfg: dict) -> tuple[bool, str, str, list[s
         for co, reason in cfg["known_non_sponsors"].items():
             if co and word_match(co, company_lower):
                 return False, "VISA RISK (SKIP)", f"Company gate: {reason}", cautions
+        # Company-level flag, not a gate: the JD is silent but the employer's product line is ITAR-heavy.
+        for co, reason in cfg["known_itar_flags"].items():
+            if co and word_match(co, company_lower):
+                caution(f"Company flag: {reason}")
         for pattern, label, mode in VISA_ITAR_PATTERNS:
             m = re.search(pattern, full_text)
             if not m:
@@ -742,6 +748,7 @@ def run_self_test() -> int:
     check("requirement in the NEXT sentence still gates", not g(description="Work involves ITAR data. Applicants must be U.S. persons. " + jd_ok)[0])
     check("'may require a license' is CAUTION not gate", g(description="This role may require access to export controlled information. Applicants must be authorized or eligible for government authorization. " + jd_ok)[0])
     check("'does not sponsor' gates", not g(description="We do not sponsor work visas. " + jd_ok)[0])
+    check("'not eligible for ... sponsorship' gates", not g(description="This position is not eligible for employment-based visa sponsorship, now or in the future. " + jd_ok)[0])
     check("welcoming citizenship mention is CAUTION", g(description="US citizens and visa holders welcome. " + jd_ok)[0])
     check("conditional citizenship (licensing review) is CAUTION not gate", g(description="Applicants for this position - except US Citizens and protected individuals as defined by 8 U.S.C. 1324b(a)(3) - may have to go through an export licensing review process. " + jd_ok)[0])
     check("hard citizenship still gates", not g(description="U.S. citizenship is required for this position. " + jd_ok)[0])
