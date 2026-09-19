@@ -95,6 +95,8 @@ def insert_to_supabase(records: list[dict], dry_run: bool = False) -> int:
                 "lane": "direct-apply",
                 "score": rec.get("score", 50),
                 "track": "T1",   # tracks retired 2026-09-09; one lane, one score
+                "domain": rec.get("domain", ""),
+                "req_id": rec.get("req_id") or None,
                 "resume": rec.get("resume_file", "resume_default"),
                 "job_url": rec.get("link", rec.get("apply_url", "")),
                 "found_date": today_str,
