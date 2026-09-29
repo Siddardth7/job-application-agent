@@ -41,7 +41,7 @@ import sys
 import tempfile
 import urllib.parse
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -557,7 +557,12 @@ def run_self_test() -> int:
 
     print("\nbatch processing on the fixture")
     fx = json.loads(FIXTURE.read_text(encoding="utf-8"))
-    raw = [normalize_job(r, "ats_direct", 1) for r in fx["ats"]] + [normalize_job(r, "linkedin_apify_p3", 3) for r in fx["linkedin"]]
+    # The fixture's "fresh" rows carry fixed dates that age past REPOST_AGE_DAYS; keep them a day old. The 2026-08 row stays old on purpose.
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    for r in fx["ats"] + fx["linkedin"]:
+        if r.get("postedAt", "") >= "2026-09-01":
+            r["postedAt"] = yesterday
+    raw =[normalize_job(r, "ats_direct", 1) for r in fx["ats"]] + [normalize_job(r, "linkedin_apify_p3", 3) for r in fx["linkedin"]]
     seen = ledger.Seen()
     out, drops = process_batch(raw, seen)
     names = {(j["company"], j["title"]) for j in out}
