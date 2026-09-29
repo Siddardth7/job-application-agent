@@ -77,6 +77,7 @@ SCORING_DEFAULTS = {
                         "principal", "director", "head of", "vice president", "vp ", "chief", "executive",
                         "senior manager", "staff engineer"],
     "drop_non_english": True,
+    "drop_future_intern_year": 2027,   # intern / co-op programs starting summer of this year or later are dropped; 0 turns it off
     "drop_intl_staffing": True,
     "carry_over_days": 1,
 }
@@ -132,14 +133,15 @@ def _sentence_around(text: str, start: int, end: int, following: int = 0) -> str
 #   requirement gate only if the same sentence reads as a requirement; else CAUTION
 #               (export-control boilerplate "comply with export control laws" is not a US-person rule)
 VISA_ITAR_PATTERNS = [
-    (r'(?i)(?:will|would|does|do|can|could|are|is)\s+not\s+(?:\w+\s+){0,4}?sponsor', "No visa sponsorship", "hard"),
+    (r'(?i)(?:will|would|does|do|can|could|are|is|must|shall|should|may)\s+not\s+(?:\w+\s+){0,4}?sponsor', "No visa sponsorship", "hard"),
+    (r'(?i)\bcannot\s+(?:\w+\s+){0,4}?sponsor', "No visa sponsorship", "hard"),
     (r'(?i)(?:unable|not\s+able|unwilling)\s+to\s+(?:\w+\s+){0,3}?sponsor', "No visa sponsorship", "hard"),
     (r'(?i)(?:does|do|will|can|cannot)\s+not?\s+(?:provide|offer|support|extend)\s+(?:\w+\s+){0,3}?sponsorship', "No visa sponsorship", "hard"),
     (r'(?i)\bno\s+(?:visa\s+|immigration\s+|work\s+visa\s+|employment\s+|h-?1b\s+)?sponsorship\b', "No visa sponsorship", "hard"),
     (r'(?i)sponsorship\s+(?:is|will)\s+not\s+(?:be\s+)?(?:available|offered|provided|considered)', "No visa sponsorship", "hard"),
-    (r'(?i)not\s+eligible\s+for\s+(?:[\w-]+\s+){0,4}?sponsorship', "No visa sponsorship", "hard"),
-    (r'(?i)without\s+(?:the\s+need\s+for\s+)?(?:visa\s+|company\s+|employer\s+|current\s+or\s+future\s+)?sponsorship', "Must work without sponsorship", "hard"),
-    (r'(?i)authoriz\w+\s+to\s+work[^.]{0,80}?without\s+(?:visa\s+)?sponsorship', "Must work without sponsorship", "hard"),
+    (r'(?i)not\s+eligible\s+for\s+(?:[\w-]+\s+){0,4}?(?:\w+-)?sponsor', "No visa sponsorship", "hard"),
+    # "without corporate sponsorship", "without any sponsorship", "without need for employer sponsored visa"
+    (r'(?i)without\s+(?:the\s+)?(?:need\s+(?:for\s+)?)?(?:[\w-]+\s+){0,3}?sponsor', "Must work without sponsorship", "hard"),
     (r'(?i)\b(?:itar|ear99|defense\s+trade\s+controls|deemed\s+export)\b', "ITAR / export control", "requirement"),
     (r'(?i)export\s+(?:control|controlled|administration\s+regulations|licensing)', "ITAR / export control", "requirement"),
     (r'(?i)controlled\s+technology', "Export-controlled technology", "requirement"),
@@ -155,6 +157,49 @@ POSITIVE_SPONSOR_RE = re.compile(
     r'(?i)\b(?:visa\s+sponsorship\s+available|will\s+sponsor|we\s+sponsor|sponsorship\s+(?:is\s+)?(?:available|provided|offered)'
     r'|visa\s+holders?|international\s+(?:applicants?|candidates?)\s+(?:are\s+)?welcome'
     r'|all\s+work\s+authoriz\w+|h-?1b|stem\s+opt|\bopt\b|\bcpt\b|visa\s+support|relocation\s+provided)\b')
+_NO_SPONSOR_RES = [re.compile(p) for p, label, mode in VISA_ITAR_PATTERNS if mode == "hard" and "sponsorship" in label.lower()]
+
+
+def stated_sponsorship(text: str) -> bool:
+    """A POSITIVE_SPONSOR_RE hit that is not next to a no-sponsorship phrase. "Must not require sponsorship
+    (e.g., H-1B, O-1)" names H-1B to refuse it. A char window, not a sentence: "e.g." breaks sentence splits."""
+    for m in POSITIVE_SPONSOR_RE.finditer(text):
+        window = text[max(0, m.start() - 250):m.end() + 100]
+        if not any(p.search(window) for p in _NO_SPONSOR_RES):
+            return True
+    return False
+
+
+# Intern / co-op programs that start after the candidate's visa runway (learning_log 2026-09-21).
+INTERN_TITLE_RE = re.compile(r'(?i)\b(?:intern(?:ship)?s?|co-?ops?)\b')
+YEAR_RE = re.compile(r'\b(20[2-9]\d)\b')
+PROGRAM_TIMING_RE = re.compile(r'(?i)\b(?:start(?:s|ing)?|begin(?:s|ning)?|program|summer|spring|fall|autumn|winter|semester|term|dates?|duration|session)\b')
+GRADUATION_RE = re.compile(r'(?i)\b(?:graduat\w*|degree|expected|anticipated|class\s+of|enrolled)\b')
+START_TOKEN_RE = re.compile(r'(?i)\b(?:winter|spring|summer|fall|autumn)\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d')
+EARLY_START_RE = re.compile(r'(?i)^(?:winter|spring|jan|feb|mar|apr)')
+
+
+def future_intern_start(job: dict, min_year: int) -> str:
+    """The quoted timing text when an intern / co-op title starts in summer of min_year or later, else "".
+    Not a future start: a sentence with any earlier year (a range that began already, Aug 2026 - May 2027),
+    a graduation-date sentence (eligibility, not timing), a title that carries an earlier year ("2026 Intern
+    Conversion", full-time by 2027), or a min_year program whose first month or season is winter to April."""
+    title = job.get("title") or ""
+    if not min_year or not INTERN_TITLE_RE.search(title) or any(int(y) < min_year for y in YEAR_RE.findall(title)):
+        return ""
+    for sentence in [title] + re.split(r'(?<=[.!?])\s+|\n', job.get("description") or ""):
+        years = [int(y) for y in YEAR_RE.findall(sentence)]
+        if not years or min(years) < min_year:
+            continue
+        if sentence is not title and (not PROGRAM_TIMING_RE.search(sentence) or GRADUATION_RE.search(sentence)):
+            continue
+        first = START_TOKEN_RE.search(sentence)
+        if min(years) == min_year and first and EARLY_START_RE.match(first.group()):
+            continue
+        return " ".join(sentence.split())[:160]
+    return ""
+
+
 REQUIREMENT_SENTENCE_RE = re.compile(
     r'(?i)\b(?:must|required?|requires|eligib\w+|only|need\s+to\s+be|citizen|u\.?s\.?\s+person|permanent\s+resident|green\s+card|clearance)\b')
 # "may require a license", "offer contingent on a license", "if we determine": the
@@ -172,7 +217,8 @@ RESIDENCY_PATTERNS = [
 # in the old Dutch list gated an English JD). No cue is a common English word.
 LANGUAGE_TITLE_CUES = {
     "dutch": ["stagiair", "stagiaire", "werkstudent", "kwaliteitsingenieur", "medewerker"],
-    "german": ["praktikum", "praktikant", "werkstudent", "abschlussarbeit", "ingenieur", "ingenieurin", "qualitätsingenieur", "fachkraft"],
+    "german": ["praktikum", "praktikant", "werkstudent", "abschlussarbeit", "ingenieur", "ingenieurin", "qualitätsingenieur", "fachkraft",
+               "techniker", "mitarbeiter", "qualitätsmanagement", "qualitätssicherung"],
     "french": ["ingénieur", "ingénieure", "stage", "stagiaire", "alternance", "alternant", "qualité", "amélioration", "pièce", "chargé", "technicien"],
     "italian": ["ingegnere", "tirocinio", "tirocinante", "qualità", "addetto", "responsabile"],
     "spanish": ["ingeniero", "ingeniera", "prácticas", "calidad", "técnico", "responsable de"],
@@ -188,6 +234,19 @@ LANGUAGE_CUES = {
     "polish": ["inżynier", "jakości", "produkcja", "stanowisko", "wymagania", "obowiązki", "praca", "doświadczenie", "umiejętności"],
     "portuguese": ["descrição", "responsabilidades", "requisitos", "oferecemos", "experiência", "conhecimentos", "candidatura", "vaga", "atividades"],
 }
+# Phrase cues miss postings that never use those exact phrases (Vishay Itzehoe, KRAUSE-Werk, 2026-09-28).
+# Running prose in another language is dense in function words that are not English words; an English JD
+# with one foreign sentence is not. Chosen to avoid English collisions ("die", "van", "met", "per", "las", "con").
+LANGUAGE_FUNCTION_WORDS = {
+    "german": "und der das mit für sie wir ist von eine oder nicht werden auch bei sich dem zur zum sind haben wird ihre unser".split(),
+    "dutch": "het een voor zijn wij niet ook naar bij wordt worden jouw onze".split(),
+    "french": "les des une pour vous nous est dans sur avec sont notre votre aux ces être".split(),
+    "spanish": "los una para por del como más nuestro usted sus también".split(),
+    "italian": "gli una con della delle sono nel nella nostro anche degli".split(),
+    "portuguese": "não uma para com dos das são nosso nossa também você".split(),
+}
+FUNCTION_WORD_MIN_HITS, FUNCTION_WORD_MIN_SHARE = 12, 0.05
+WORD_RE = re.compile(r"[a-zäöüßéèêàçñãõáíóúâôœ]+")
 INTL_LOCATION_RE = re.compile(r'(?i)\b(europe|belgium|netherlands|germany|france|italy|spain|sweden|switzerland|austria|ireland|denmark|australia|canada|singapore|united kingdom|uk)\b')
 
 
@@ -198,6 +257,13 @@ def detect_foreign_language(title: str, text: str, accepted: list[str]) -> str:
             return lang
     for lang, cues in LANGUAGE_CUES.items():
         if lang not in accepted and sum(1 for c in cues if word_match(c, low)) >= 2:
+            return lang
+    words = WORD_RE.findall(low)
+    for lang, fw in LANGUAGE_FUNCTION_WORDS.items():
+        if lang in accepted:
+            continue
+        hits = sum(1 for w in words if w in fw)
+        if hits >= FUNCTION_WORD_MIN_HITS and hits / len(words) >= FUNCTION_WORD_MIN_SHARE:
             return lang
     return ""
 
@@ -248,6 +314,10 @@ def check_eligibility_gate(job: dict, cfg: dict) -> tuple[bool, str, str, list[s
             start, end = max(0, m.start() - 120), min(len(full_text), m.end() + 120)
             snippet = " ".join(full_text[start:end].split())
             return False, "VISA RISK (SKIP)", f"{label} (Matched snippet: \"...{snippet}...\")", cautions
+
+        timing = future_intern_start(job, sc["drop_future_intern_year"])
+        if timing:
+            return False, "DROP (FUTURE-START)", f"Intern / co-op starts {sc['drop_future_intern_year']} or later, past your work-authorization runway: \"{timing}\"", cautions
 
     for cue in sc["title_drop_cues"]:
         if cue and cue in f" {title_lower} ":
@@ -309,7 +379,7 @@ def score_sponsorship(job: dict, text: str, cfg: dict, is_intl: bool) -> tuple[i
     sc, w = cfg["scoring"]["sponsorship"], cfg["scoring"]["weights"]["sponsorship"]
     if not cfg["candidate"]["needs_sponsorship"]:
         return w, "candidate does not need sponsorship"
-    if POSITIVE_SPONSOR_RE.search(text):
+    if stated_sponsorship(text):
         return min(w, sc["stated"]), "JD states sponsorship / visa holders welcome"
     approvals = uscis_approvals(job.get("company", ""))
     for floor, pts in sc["filing_tiers"]:
@@ -759,6 +829,32 @@ def run_self_test() -> int:
     check("intern title is NOT dropped (Pass 4 fetches them)", g(title="Quality Engineering Intern")[0])
     check("technician title is NOT dropped", g(title="Quality Technician")[0])
 
+    print("\nGate 0: phrasing the 2026-09-28 run missed")
+    check("'without corporate sponsorship' gates", not g(description="Must be able to work in the United States without corporate sponsorship now and within the future. " + jd_ok)[0])
+    check("'without need for employer sponsored visa' gates", not g(description="Must be eligible to work in the U.S. without need for employer sponsored visa (work permit). " + jd_ok)[0])
+    check("'without any sponsorship' gates", not g(description="Candidates who can work on W2 without any sponsorship are encouraged to apply. " + jd_ok)[0])
+    check("'must not require sponsorship (e.g., H-1B)' gates", not g(description="Applicants must not require sponsorship for employment visa status (e.g., H-1B, O-1). " + jd_ok)[0])
+    check("'not eligible for employer-sponsored work authorization' gates", not g(description="This position is not eligible for employer-sponsored work authorization. " + jd_ok)[0])
+    check("'cannot sponsor' gates", not g(description="The company cannot sponsor visas. " + jd_ok)[0])
+    check("'visa sponsorship provided' is not gated", g(description="Relocation and visa sponsorship provided. " + jd_ok)[0])
+
+    print("\nGate 0: future-start intern / co-op")
+    check("Summer 2027 intern title drops", not g(title="Quality Intern - Summer 2027")[0])
+    check("May-Aug 2027 program in the body drops", not g(title="Quality Intern", description="The program is planned to occur between May 17 and August 6, 2027. " + jd_ok)[0])
+    check("2028 program drops", not g(title="Quality Intern - Summer 2028")[0])
+    check("Spring 2027 co-op is kept (rule is summer or later)", g(title="Process Co-op - Spring 2027")[0])
+    check("Jan-Jun 2027 co-op is kept", g(title="Quality Co-op", description="This co-op runs from January 4, 2027, through June 25, 2027. " + jd_ok)[0])
+    check("a range that began in 2026 is kept", g(title="Engineering Co-op", description="A 2 semester assignment, starting August 2026 through May 2027. " + jd_ok)[0])
+    check("a graduation date is not a start date", g(title="Quality Intern", description="Students expected to graduate in summer 2027 may apply. " + jd_ok)[0])
+    check("'2026 Intern Conversion' with a 2027 full-time start is kept", g(title="Quality Engineer I - 2026 Intern Conversion", description="Able to start working full-time on or before September of 2027. " + jd_ok)[0])
+    check("non-intern title with a 2027 date is untouched", g(title="Quality Engineer", description="Start date in summer 2027. " + jd_ok)[0])
+    check("drop_future_intern_year=0 turns it off", check_eligibility_gate(job(title="Quality Intern - Summer 2027"), build_cfg({**_test_profile(), "scoring": {"drop_future_intern_year": 0}}))[0])
+
+    print("\nGate 0: language by function-word density")
+    german = "Wir sind ein Unternehmen und suchen einen Kollegen für die Qualität. Sie werden mit dem Team arbeiten und sind bei uns willkommen. " * 3
+    check("German prose without phrase cues gates", not g(description=german)[0])
+    check("English JD with one German sentence is not gated", g(description=jd_ok + " Wir suchen Sie und Ihr Team für die Zukunft.")[0])
+
     print("\nrole fit and years (R7)")
     check("'founded 10 years ago' is not a requirement", required_years("About us\nFounded 10 years ago.\nRequirements\n- SPC experience") is None)
     check("'2-5 years experience' takes the low bound", required_years("Requirements\n- 2-5 years of experience") == 2)
@@ -770,6 +866,8 @@ def run_self_test() -> int:
 
     print("\nsponsorship and domain")
     check("stated sponsorship scores max", score_sponsorship(job(), "visa sponsorship available", cfg, False)[0] == 25)
+    check("H-1B named in a refusal is not a stated sponsor", score_sponsorship(job(company="Unknown LLC"), "Must not require sponsorship for employment visa status (e.g., H-1B, O-1).", cfg, False)[0] == 8)
+    check("H-1B sponsorship stated far from a refusal still counts", score_sponsorship(job(company="Unknown LLC"), "H-1B sponsorship available for this role. " + "x " * 200 + "We do not sponsor for interns.", cfg, False)[0] == 25)
     check("known sponsor tier scaled to axis", score_sponsorship(job(company="Contoso"), "nothing", cfg, False)[0] == round(26 * 25 / 30))
     check("silent is neutral 8", score_sponsorship(job(company="Unknown LLC"), "nothing", cfg, False)[0] == 8)
     check("short USCIS names need a token match (R10)", uscis_approvals("KLA", {"OKLAHOMA STATE": {"approvals": 99}}) == 0)
