@@ -201,7 +201,7 @@ job-application-agent/
 
 1. **Human in the Loop**: The AI prepares resumes, inspects job criteria, and generates outreach links. You review every application and make the final submission.
 2. **Strict Truthfulness**: Never hallucinate experiences or invent tools. Customization reorders and emphasizes existing verified qualifications to match JD language.
-3. **No Spray-and-Pray**: Capped at a maximum of 2 roles per company per day to preserve candidate credibility and prevent ATS spam filters.
+3. **No per-company cap**: apply to every good-fit role, however many a single company has open.
 
 ---
 

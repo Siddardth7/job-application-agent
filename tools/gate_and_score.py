@@ -20,7 +20,7 @@ local-residency-only, and the seen ledger.
 
 Every row lands in exactly one bucket, and none is lost silently:
   Apply       top `shortlist_size` confident rows at or above `apply_threshold`
-  Reserve     confident and above threshold, held by `max_per_company` or the size
+  Reserve     confident and above threshold, held by the shortlist size
   Unverified  above threshold but the keyword check was thin — shown, not ranked
   Needs JD    no description; cannot be scored; listed for the user to fetch
   Drop        gated, off-discipline, or below threshold
@@ -61,7 +61,6 @@ SCORING_DEFAULTS = {
     "weights": {"coverage": 40, "sponsorship": 25, "domain": 15, "role_fit": 15, "logistics": 5},
     "apply_threshold": 50,
     "shortlist_size": 15,
-    "max_per_company": 2,
     "domain_floor": 3,
     "sponsorship": {"stated": 25, "filing_tiers": [[50, 22], [10, 17], [1, 12]], "silent": 8, "international_floor": 15},
     "role_fit": {"entry": 15, "unstated": 10, "within_max_years": 12, "over_max_years": 5,
@@ -569,19 +568,13 @@ def rank_batch(jobs: list[dict], cfg: dict, tax: ke.Taxonomy, seen: ledger.Seen)
         row.update(bucket=bucket, lane=bucket, verdict=verdict)
         out.append(row)
 
-    # Shortlist: confident Apply rows, best first, company-capped, top N.
+    # Shortlist: confident Apply rows, best first, top N (no per-company cap).
     apply_rows = sorted([r for r in out if r["bucket"] == "Apply"], key=lambda r: -r["score"])
-    counts: dict[str, int] = {}
     kept = 0
     for r in apply_rows:
-        co = ledger.normalize_company(r.get("company", ""))
-        if counts.get(co, 0) >= sc["max_per_company"]:
-            r.update(bucket="Reserve", lane="Reserve", verdict=f"Held: {sc['max_per_company']} per company per day")
-            continue
         if kept >= sc["shortlist_size"]:
             r.update(bucket="Reserve", lane="Reserve", verdict=f"Held: shortlist is {sc['shortlist_size']} rows")
             continue
-        counts[co] = counts.get(co, 0) + 1
         kept += 1
     order = {"Apply": 0, "Reserve": 1, "Unverified": 2, "Needs JD": 3, "Drop": 4}
     return sorted(out, key=lambda r: (order[r["bucket"]], -r.get("score", 0)))
@@ -666,7 +659,7 @@ def write_outputs(ranked: list[dict], cfg: dict, today: str, ledger_written: int
          f"{len(by['Reserve'])} in reserve, {len(by['Unverified'])} unverified, {len(by['Needs JD'])} need a JD, "
          f"{len(below)} below threshold, {len(gated)} gated. {ledger_written} rows recorded in the seen ledger.\n",
          f"> Score = Coverage {W['coverage']} + Sponsorship {W['sponsorship']} + Domain {W['domain']} + Role fit {W['role_fit']} + "
-         f"Logistics {W['logistics']}. Apply at ≥ {sc['apply_threshold']}, top {sc['shortlist_size']}, max {sc['max_per_company']} per company. "
+         f"Logistics {W['logistics']}. Apply at ≥ {sc['apply_threshold']}, top {sc['shortlist_size']}. "
          f"`KW` = P/E/A/G counts of the ATS terms the JD asks for; Cov% weights required terms 2x.\n"]
 
     def table(rows, title, note=""):
@@ -774,7 +767,7 @@ def _test_profile() -> dict:
         "known_non_sponsors": {"nosponsor corp": "policy: no sponsorship"},
         "known_sponsors": {"tier1": {"points": 26, "points_out_of": 30, "companies": ["contoso"]}},
         "staffing_agencies": ["acme staffing"],
-        "scoring": {"shortlist_size": 3, "max_per_company": 1},
+        "scoring": {"shortlist_size": 3},
     }
 
 

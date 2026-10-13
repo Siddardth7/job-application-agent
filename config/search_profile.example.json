@@ -151,7 +151,6 @@
     },
     "apply_threshold": 50,
     "shortlist_size": 15,
-    "max_per_company": 2,
     "domain_floor": 3,
     "off_discipline_cues": [
       "inspector",

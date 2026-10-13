@@ -109,7 +109,6 @@ Nothing else. "Probably fine" is not an override.
 | < [APPLY_THRESHOLD] | **Drop** | Logged to `seen_jobs.csv`, no resume built |
 
 Caps that override the score:
-- Max **[MAX_PER_COMPANY]** roles per company per day.
 - Max **[DAILY_CAP]** applications per day.
 
 ## 6. Employer-quality handling

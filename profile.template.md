@@ -65,7 +65,6 @@ your own voice, not in résumé language.]
 ## Run Parameters
 
 - **Daily application cap:** [N] roles
-- **Max roles per company per day:** [N — default 2, keeps you off ATS spam filters]
 - **Minimum score to shortlist:** [N — default 50]
 - **Score that flags a role for networking:** [N — default 60]
 - **Apify spend cap:** $[N]/day (leave at 0 to run free ATS-only sourcing)

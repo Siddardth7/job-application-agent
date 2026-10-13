@@ -54,7 +54,7 @@ One formula, out of 100. Every weight, threshold and cue list is in
 
 | Bucket | Rule | What you do |
 |---|---|---|
-| **Apply** | Confident score ≥ `apply_threshold` (50), top `shortlist_size` (15), at most `max_per_company` (2) | The shortlist. Audit it |
+| **Apply** | Confident score ≥ `apply_threshold` (50), top `shortlist_size` (15) (no per-company cap) | The shortlist. Audit it |
 | **Reserve** | Would be Apply, held by the cap or the size | Promote on request |
 | **Unverified** | Above threshold, but the keyword check was THIN / UNSCOPED / NONE | Read the JD; say plainly the number is low-confidence |
 | **Needs JD** | No description arrived | List them; the user fetches the text and reruns Pass 0 |

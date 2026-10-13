@@ -46,7 +46,7 @@ years required vs `candidate.max_years`) + **Logistics 5** (fresh, direct employ
   citizenship / clearance language (all skipped when `candidate.needs_sponsorship` is false),
   `title_drop_cues`, non-English text (unless in `candidate.languages`), residency-only, seen ledger.
   Export-control boilerplate and "may require a license" wording are cautions shown at Gate A, not drops.
-- **Buckets:** `Apply` (top 15 confident rows ≥ 50, max 2 per company) · `Reserve` (held by the caps) ·
+- **Buckets:** `Apply` (top 15 confident rows ≥ 50) · `Reserve` (held by the shortlist size) ·
   `Unverified` (above 50 but the keyword check was thin) · `Needs JD` (no text) · `Drop` (gated,
   off-discipline, below 50). Nothing is dropped silently; every bucket is on the page.
 - **Ledger:** every row is appended to `seen_jobs.csv` with its bucket as status. **Carry-over:** yesterday's

@@ -149,8 +149,7 @@ discover half their market.
 **6. Logistics.** Seniority band. Cities/regions in scope, and commute limit. Countries to
 block. Deal-breakers (shift work, travel %, industries to avoid).
 
-**7. Run parameters.** Daily application cap (default 10), max per company per day (default
-2), score to shortlist (default 50), score to flag for networking (default 60), Apify daily
+**7. Run parameters.** Daily application cap (default 10), score to shortlist (default 50), score to flag for networking (default 60), Apify daily
 spend cap (default $0 — free ATS sourcing only).
 
 **8. Resume setup.** Two questions, in order. Do not assume either answer.
