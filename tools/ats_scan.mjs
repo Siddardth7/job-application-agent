@@ -137,7 +137,7 @@ async function run(configPath, sinceDaysOverride) {
       const provider = await loadProvider(entry.provider);
       const jobs = await provider.fetch(entry, ctx);
       const rows = jobs.map(j => mapJob(j, entry.provider))
-        .filter(r => passesTitleFilter(r.title, cfg.title_filter))
+        .filter(r => entry.all_postings || passesTitleFilter(r.title, cfg.title_filter))   // target companies: every posting, the ranker judges fit
         .filter(r => passesLocationFilter(r.location, cfg.location_filter))
         .filter(r => isFresh(r, sinceMs));
       console.error(`  ${entry.name} [${entry.provider}]: ${jobs.length} fetched → ${rows.length} kept`);

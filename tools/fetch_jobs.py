@@ -127,7 +127,7 @@ def is_geo_blocked(location: str) -> bool:
 
 # ── Sources ─────────────────────────────────────────────────────────────────
 
-def run_ats_scan(skip_companies: list[str]) -> tuple[list[dict], str, list[str]]:
+def run_ats_scan(skip_companies: list[str], days: int | None = None) -> tuple[list[dict], str, list[str]]:
     """Run tools/ats_scan.mjs. Returns (rows, error, portals_skipped)."""
     cfg = json.loads(PORTALS_JSON.read_text(encoding="utf-8"))
     skipped = [p["name"] for p in cfg.get("portals", [])
@@ -138,7 +138,7 @@ def run_ats_scan(skip_companies: list[str]) -> tuple[list[dict], str, list[str]]
         json.dump(cfg, tmp)
         tmp_path = tmp.name
     try:
-        res = subprocess.run(["node", str(ATS_SCAN_MJS), tmp_path, "--since-days", str(pass_days(1))],
+        res = subprocess.run(["node", str(ATS_SCAN_MJS), tmp_path, "--since-days", str(days or pass_days(1))],
                              cwd=str(ROOT_DIR), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                              text=True, timeout=300)
         if res.returncode != 0:
@@ -448,8 +448,13 @@ def main(argv: list[str]) -> int:
             if args["dry_run"]:
                 rows, err, skipped_portals = list(fixture["ats"]), "", []
             else:
-                rows, err, skipped_portals = run_ats_scan(non_sponsors)
-            raw_jobs.extend(normalize_job(r, "ats_direct", 1) for r in rows)
+                rows, err, skipped_portals = run_ats_scan(non_sponsors, args["backfill"] or None)
+            new = [normalize_job(r, "ats_direct", 1) for r in rows]
+            if args["backfill"]:   # target companies only; other portals keep the normal ledger rules
+                names = [c.lower() for c in st["company_ids"]]
+                for j in new:
+                    j["bypass_ledger"] = any(t in j["company"].lower() for t in names)
+            raw_jobs.extend(new)
             record(1, "failed" if err else "ok", len(rows), err)
 
         elif n == 2 and st["company_ids"]:
