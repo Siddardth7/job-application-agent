@@ -86,6 +86,9 @@
       "3": 1,
       "4": 1,
       "5": 3
+    },
+    "target_company_ids": {
+      "Example Co": 123456
     }
   },
   "target_anchors": [

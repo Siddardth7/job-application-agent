@@ -543,7 +543,10 @@ def rank_batch(jobs: list[dict], cfg: dict, tax: ke.Taxonomy, seen: ledger.Seen)
     out = []
     for job in jobs:
         row = {**job, "gate0_passed": False, "caution_notes": []}
-        why_seen = seen.match(job) if job.get("pass_num") != 0 and not job.get("carried_from") else ""
+        if job.get("bypass_ledger"):
+            why_seen = "applied" if ledger.clean_url(job.get("link") or "") in seen.applied_urls else ""
+        else:
+            why_seen = seen.match(job) if job.get("pass_num") != 0 and not job.get("carried_from") else ""
         if why_seen:
             out.append({**row, "score": 0, "sub_scores": {}, "bucket": "Drop", "lane": "Drop",
                         "verdict": "ALREADY SEEN", "reasons": [why_seen]})

@@ -78,7 +78,7 @@ def _or(terms: list) -> str:
 
 def linkedin_query(keywords: str, location: str = "United States",
                    days: int = 7, experience: str | None = "2,3",
-                   job_type: str | None = None) -> str:
+                   job_type: str | None = None, company_id: int | None = None) -> str:
     """Build one LinkedIn jobs search URL.
 
     f_TPR is seconds; f_E is experience level (1 intern, 2 entry, 3 associate);
@@ -95,6 +95,8 @@ def linkedin_query(keywords: str, location: str = "United States",
         url += f"&f_E={experience}"
     if job_type:
         url += f"&f_JT={job_type}"
+    if company_id:
+        url += f"&f_C={company_id}"
     return url
 
 
@@ -105,6 +107,7 @@ def search_terms() -> dict:
     domains = cfg.get("domains", [])
     return {
         "anchors": cfg.get("target_anchors", []),
+        "company_ids": search.get("target_company_ids", {}),   # {"Tesla": 15564}: LinkedIn's f_C filter
         "titles": search.get("role_titles", []),
         "adjacent_titles": search.get("adjacent_titles", []),
         "toolkit": cfg.get("master_toolkit", [])[:8],

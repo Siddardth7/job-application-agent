@@ -6,7 +6,8 @@ six passes found today.
 
   Pass 0  your hand-found postings      --jds=DIR (Markdown files) and/or --urls=FILE / --url=...
   Pass 1  company career sites (free)   node tools/ats_scan.mjs over tools/portals.json, 3 days
-  Pass 2  LinkedIn, target companies    anchors x role titles, 3 days
+  Pass 2  LinkedIn, target companies    EVERY posting per company id (f_C), no title/level filter, 3 days
+                                        (--backfill=N: N days, ignores the seen ledger except applied rows)
   Pass 3  LinkedIn, all domains         every domain company x role titles, 24 hours
   Pass 4  LinkedIn, non-full-time       contract / temporary / internship / co-op / technician, 24 hours
   Pass 5  LinkedIn, international       role + adjacent titles per configured country, 3 days
@@ -311,13 +312,16 @@ def process_batch(raw_jobs: list[dict], seen: ledger.Seen) -> tuple[list[dict], 
         if not job.get("title") or not job.get("company"):
             drops["no_title_or_company"] += 1
             continue
-        if job.get("freshness") == "REPOSTED":
+        if job.get("freshness") == "REPOSTED" and not job.get("bypass_ledger"):   # backfill: age is the point
             drops["reposted"] += 1
             continue
         if is_geo_blocked(job.get("location", "")) and not job.get("source", "").endswith("intl"):
             drops["geo_blocked"] += 1
             continue
-        why = seen.match(job) if job.get("pass_num") != 0 else ""
+        if job.get("bypass_ledger"):   # target-company backfill: only an applied row is "seen"
+            why = "applied" if ledger.clean_url(job.get("link") or "") in seen.applied_urls else ""
+        else:
+            why = seen.match(job) if job.get("pass_num") != 0 else ""
         if why:
             drops["already_seen"] += 1
             continue
@@ -372,13 +376,15 @@ def pick_needs_jd(survivors: list[dict]) -> list[dict]:
 
 def parse_args(argv: list[str]) -> dict:
     a = {"passes": [0, 1, 2, 3, 4, 5], "ats_only": False, "jds": None, "urls": [],
-         "dry_run": "--dry-run" in argv, "self_test": "--self-test" in argv}
+         "dry_run": "--dry-run" in argv, "self_test": "--self-test" in argv, "backfill": 0}
     for arg in argv:
         if arg.startswith("--pass=") and arg[7:] != "all":
             try:
                 a["passes"] = sorted({int(x) for x in arg[7:].split(",")})
             except ValueError:
                 print(f"Invalid --pass value {arg[7:]!r}; running all passes.")
+        elif arg.startswith("--backfill="):
+            a["backfill"] = int(arg[11:])
         elif arg == "--ats-only":
             a["ats_only"] = True
         elif arg.startswith("--jds="):
@@ -419,10 +425,14 @@ def main(argv: list[str]) -> int:
         if args["dry_run"]:
             rows, err, spend = list(fixture["linkedin"]), "", None
         else:
-            rows, err = run_apify(urls, pass_cap(n), per_url, token)
+            rows, err = run_apify(urls, pass_cap(n) * (5 if args["backfill"] and n == 2 else 1), per_url, token)
             spend = apify_last_run_usd(token)
         src = "linkedin_apify_intl" if n == 5 else f"linkedin_apify_p{n}"
-        raw_jobs.extend(normalize_job(r, src, n) for r in rows)
+        new = [normalize_job(r, src, n) for r in rows]
+        if args["backfill"] and n == 2:
+            for j in new:
+                j["bypass_ledger"] = True
+        raw_jobs.extend(new)
         record(n, "failed" if err else "ok", len(rows), err, pass_cap(n), spend)
 
     for n in args["passes"]:
@@ -441,6 +451,13 @@ def main(argv: list[str]) -> int:
                 rows, err, skipped_portals = run_ats_scan(non_sponsors)
             raw_jobs.extend(normalize_job(r, "ats_direct", 1) for r in rows)
             record(1, "failed" if err else "ok", len(rows), err)
+
+        elif n == 2 and st["company_ids"]:
+            # f_C is a real company filter. The old keyword search ("Tesla AND titles") matched
+            # description text, never the employer, so Tesla and Joby almost never surfaced.
+            days = args["backfill"] or pass_days(2)
+            urls = [linkedin_query("", days=days, experience=None, company_id=cid) for cid in st["company_ids"].values()]
+            apify_pass(2, urls, 150)
 
         elif n == 2:
             urls = [linkedin_query(f'{_or(st["anchors"][i:i + 3])} AND {_or(st["titles"])}', days=pass_days(2))
