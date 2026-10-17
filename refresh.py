@@ -54,10 +54,17 @@ def _rest(table):
     key = os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not key:
         sys.exit("ERROR: --fetch needs SUPABASE_KEY in the environment / .env.")
-    req = urllib.request.Request(f"{SUPABASE_URL}/rest/v1/{table}?select=*",
-                                 headers={"apikey": key, "Authorization": f"Bearer {key}"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read().decode())
+    rows, page = [], 1000  # PostgREST caps a response at 1000 rows, so page through
+    while True:
+        req = urllib.request.Request(
+            f"{SUPABASE_URL}/rest/v1/{table}?select=*",
+            headers={"apikey": key, "Authorization": f"Bearer {key}",
+                     "Range-Unit": "items", "Range": f"{len(rows)}-{len(rows) + page - 1}"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            batch = json.loads(r.read().decode())
+        rows += batch
+        if len(batch) < page:
+            return rows
 
 # ---------------------------------------------------- learning-log connection
 # Drop reviews written in the tracker's note field are synced into a managed block in
