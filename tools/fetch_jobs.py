@@ -6,7 +6,8 @@ six passes found today.
 
   Pass 0  your hand-found postings      --jds=DIR (Markdown files) and/or --urls=FILE / --url=...
   Pass 1  company career sites (free)   node tools/ats_scan.mjs over tools/portals.json, 3 days
-  Pass 2  LinkedIn, target companies    anchors x role titles, 3 days
+  Pass 2  LinkedIn, target companies    EVERY posting per company id (f_C), no title/level filter, 3 days
+                                        (--backfill=N: N days, ignores the seen ledger except applied rows)
   Pass 3  LinkedIn, all domains         every domain company x role titles, 24 hours
   Pass 4  LinkedIn, non-full-time       contract / temporary / internship / co-op / technician, 24 hours
   Pass 5  LinkedIn, international       role + adjacent titles per configured country, 3 days
@@ -41,7 +42,7 @@ import sys
 import tempfile
 import urllib.parse
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -126,7 +127,7 @@ def is_geo_blocked(location: str) -> bool:
 
 # ── Sources ─────────────────────────────────────────────────────────────────
 
-def run_ats_scan(skip_companies: list[str]) -> tuple[list[dict], str, list[str]]:
+def run_ats_scan(skip_companies: list[str], days: int | None = None) -> tuple[list[dict], str, list[str]]:
     """Run tools/ats_scan.mjs. Returns (rows, error, portals_skipped)."""
     cfg = json.loads(PORTALS_JSON.read_text(encoding="utf-8"))
     skipped = [p["name"] for p in cfg.get("portals", [])
@@ -137,7 +138,7 @@ def run_ats_scan(skip_companies: list[str]) -> tuple[list[dict], str, list[str]]
         json.dump(cfg, tmp)
         tmp_path = tmp.name
     try:
-        res = subprocess.run(["node", str(ATS_SCAN_MJS), tmp_path, "--since-days", str(pass_days(1))],
+        res = subprocess.run(["node", str(ATS_SCAN_MJS), tmp_path, "--since-days", str(days or pass_days(1))],
                              cwd=str(ROOT_DIR), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                              text=True, timeout=300)
         if res.returncode != 0:
@@ -311,13 +312,16 @@ def process_batch(raw_jobs: list[dict], seen: ledger.Seen) -> tuple[list[dict], 
         if not job.get("title") or not job.get("company"):
             drops["no_title_or_company"] += 1
             continue
-        if job.get("freshness") == "REPOSTED":
+        if job.get("freshness") == "REPOSTED" and not job.get("bypass_ledger"):   # backfill: age is the point
             drops["reposted"] += 1
             continue
         if is_geo_blocked(job.get("location", "")) and not job.get("source", "").endswith("intl"):
             drops["geo_blocked"] += 1
             continue
-        why = seen.match(job) if job.get("pass_num") != 0 else ""
+        if job.get("bypass_ledger"):   # target-company backfill: only an applied row is "seen"
+            why = "applied" if ledger.clean_url(job.get("link") or "") in seen.applied_urls else ""
+        else:
+            why = seen.match(job) if job.get("pass_num") != 0 else ""
         if why:
             drops["already_seen"] += 1
             continue
@@ -372,13 +376,15 @@ def pick_needs_jd(survivors: list[dict]) -> list[dict]:
 
 def parse_args(argv: list[str]) -> dict:
     a = {"passes": [0, 1, 2, 3, 4, 5], "ats_only": False, "jds": None, "urls": [],
-         "dry_run": "--dry-run" in argv, "self_test": "--self-test" in argv}
+         "dry_run": "--dry-run" in argv, "self_test": "--self-test" in argv, "backfill": 0}
     for arg in argv:
         if arg.startswith("--pass=") and arg[7:] != "all":
             try:
                 a["passes"] = sorted({int(x) for x in arg[7:].split(",")})
             except ValueError:
                 print(f"Invalid --pass value {arg[7:]!r}; running all passes.")
+        elif arg.startswith("--backfill="):
+            a["backfill"] = int(arg[11:])
         elif arg == "--ats-only":
             a["ats_only"] = True
         elif arg.startswith("--jds="):
@@ -397,7 +403,7 @@ def main(argv: list[str]) -> int:
     PIPELINE_DIR.mkdir(parents=True, exist_ok=True)
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8")) if args["dry_run"] else None
 
-    seen = ledger.load_seen(supabase=not args["dry_run"])
+    seen = ledger.load_seen(supabase=False)   # fresh-sprint ledger: seen_jobs.csv only
     print(f"Seen ledger: {len(seen.urls)} URLs, {len(seen.req_ids)} requisition ids, {len(seen.fps)} fingerprints.")
 
     st = search_terms()
@@ -419,10 +425,14 @@ def main(argv: list[str]) -> int:
         if args["dry_run"]:
             rows, err, spend = list(fixture["linkedin"]), "", None
         else:
-            rows, err = run_apify(urls, pass_cap(n), per_url, token)
+            rows, err = run_apify(urls, pass_cap(n) * (5 if args["backfill"] and n == 2 else 1), per_url, token)
             spend = apify_last_run_usd(token)
         src = "linkedin_apify_intl" if n == 5 else f"linkedin_apify_p{n}"
-        raw_jobs.extend(normalize_job(r, src, n) for r in rows)
+        new = [normalize_job(r, src, n) for r in rows]
+        if args["backfill"] and n == 2:
+            for j in new:
+                j["bypass_ledger"] = True
+        raw_jobs.extend(new)
         record(n, "failed" if err else "ok", len(rows), err, pass_cap(n), spend)
 
     for n in args["passes"]:
@@ -438,9 +448,21 @@ def main(argv: list[str]) -> int:
             if args["dry_run"]:
                 rows, err, skipped_portals = list(fixture["ats"]), "", []
             else:
-                rows, err, skipped_portals = run_ats_scan(non_sponsors)
-            raw_jobs.extend(normalize_job(r, "ats_direct", 1) for r in rows)
+                rows, err, skipped_portals = run_ats_scan(non_sponsors, args["backfill"] or None)
+            new = [normalize_job(r, "ats_direct", 1) for r in rows]
+            if args["backfill"]:   # target companies only; other portals keep the normal ledger rules
+                names = [c.lower() for c in st["company_ids"]]
+                for j in new:
+                    j["bypass_ledger"] = any(t in j["company"].lower() for t in names)
+            raw_jobs.extend(new)
             record(1, "failed" if err else "ok", len(rows), err)
+
+        elif n == 2 and st["company_ids"]:
+            # f_C is a real company filter. The old keyword search ("Tesla AND titles") matched
+            # description text, never the employer, so Tesla and Joby almost never surfaced.
+            days = args["backfill"] or pass_days(2)
+            urls = [linkedin_query("", days=days, experience=None, company_id=cid) for cid in st["company_ids"].values()]
+            apify_pass(2, urls, 150)
 
         elif n == 2:
             urls = [linkedin_query(f'{_or(st["anchors"][i:i + 3])} AND {_or(st["titles"])}', days=pass_days(2))
@@ -450,13 +472,13 @@ def main(argv: list[str]) -> int:
         elif n == 3:
             urls = [linkedin_query(f'{_or(st["domain_companies"][i:i + 5])} AND {_or(st["titles"])}', days=pass_days(3))
                     for i in range(0, len(st["domain_companies"]), 5)]
-            urls.append(linkedin_query(_or(st["titles"]), days=pass_days(3)))
+            urls.append(linkedin_query(_or(st["titles"]), days=pass_days(3), function="eng"))
             apify_pass(3, urls, 40)
 
         elif n == 4:
             titles = _or(st["titles"] + st["adjacent_titles"])
             urls = [linkedin_query(titles, days=pass_days(4), experience=None, job_type="C,T,I"),
-                    linkedin_query(f'{titles} AND ("co-op" OR "intern" OR "contract")', days=pass_days(4), experience="1,2,3"),
+                    linkedin_query(f'{titles} AND ("co-op" OR "intern" OR "contract")', days=pass_days(4), experience="1,2,3", function="eng"),
                     linkedin_query(_or(st["adjacent_titles"]), days=pass_days(4), experience="1,2,3")]
             apify_pass(4, [u for u in urls if '("")' not in u], 40)
 
@@ -557,7 +579,12 @@ def run_self_test() -> int:
 
     print("\nbatch processing on the fixture")
     fx = json.loads(FIXTURE.read_text(encoding="utf-8"))
-    raw = [normalize_job(r, "ats_direct", 1) for r in fx["ats"]] + [normalize_job(r, "linkedin_apify_p3", 3) for r in fx["linkedin"]]
+    # The fixture's "fresh" rows carry fixed dates that age past REPOST_AGE_DAYS; keep them a day old. The 2026-08 row stays old on purpose.
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    for r in fx["ats"] + fx["linkedin"]:
+        if r.get("postedAt", "") >= "2026-09-01":
+            r["postedAt"] = yesterday
+    raw =[normalize_job(r, "ats_direct", 1) for r in fx["ats"]] + [normalize_job(r, "linkedin_apify_p3", 3) for r in fx["linkedin"]]
     seen = ledger.Seen()
     out, drops = process_batch(raw, seen)
     names = {(j["company"], j["title"]) for j in out}

@@ -9,7 +9,6 @@
 # ── Personal identity (PII) — templates are tracked, the real files are not ──
 profile.md
 data/candidate_resume_database.json
-data/keyword_taxonomy.json
 Resume/Final_Resumes/Resume_NewStrategy_Master.tex
 Resume/Final_Resumes/*.pdf
 Resume/**/*.pdf
@@ -66,3 +65,8 @@ playbook/P1_06_ranker_redesign_plan.md
 # PII guard pattern list (is itself PII)
 .pii_patterns
 supabase/.temp/
+
+# New sprint files
+learning_log.md
+data/applied_dedup.csv
+TODO.md

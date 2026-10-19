@@ -165,7 +165,8 @@ def load_seen(csv_path: Path = SEEN_JOBS_CSV, supabase: bool = True) -> Seen:
                         co = title = ""
                     rid = row[req_col] if req_col is not None and len(row) > req_col else ""
                     seen.add(co, title, url, rid)
-                    if url and any(c.startswith("applied") for c in row):
+                    # "|" excludes the fingerprint cell ("appliedmaterials|...")
+                    if url and any(c.startswith("applied") and "|" not in c for c in row):
                         seen.applied_urls.add(clean_url(url))
                     if len(row) >= 7 and row[6] and "|" in row[6]:
                         seen.fps.add(re.sub(r'[^a-z0-9|]', '', row[6].lower()))

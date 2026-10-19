@@ -1,6 +1,6 @@
 """Search-profile config loader.
 
-Every list that used to be hardcoded in gate_and_score.py / fetch_jobs.py lives in
+Every list that used to be hardcoded in the gate code / fetch_jobs.py lives in
 config/search_profile.json, which `/setup` writes for each user. The example file is
 the fallback so a fresh clone still runs before setup — but it carries the template
 author's targets, so running the pipeline on it scores against the wrong profile.
@@ -78,7 +78,8 @@ def _or(terms: list) -> str:
 
 def linkedin_query(keywords: str, location: str = "United States",
                    days: int = 7, experience: str | None = "2,3",
-                   job_type: str | None = None) -> str:
+                   job_type: str | None = None, company_id: int | None = None,
+                   function: str | None = None) -> str:
     """Build one LinkedIn jobs search URL.
 
     f_TPR is seconds; f_E is experience level (1 intern, 2 entry, 3 associate);
@@ -95,6 +96,10 @@ def linkedin_query(keywords: str, location: str = "United States",
         url += f"&f_E={experience}"
     if job_type:
         url += f"&f_JT={job_type}"
+    if company_id:
+        url += f"&f_C={company_id}"
+    if function:
+        url += f"&f_F={function}"   # job function, e.g. "eng": cuts non-engineering noise before it is billed
     return url
 
 
@@ -105,6 +110,7 @@ def search_terms() -> dict:
     domains = cfg.get("domains", [])
     return {
         "anchors": cfg.get("target_anchors", []),
+        "company_ids": search.get("target_company_ids", {}),   # {"Tesla": 15564}: LinkedIn's f_C filter
         "titles": search.get("role_titles", []),
         "adjacent_titles": search.get("adjacent_titles", []),
         "toolkit": cfg.get("master_toolkit", [])[:8],

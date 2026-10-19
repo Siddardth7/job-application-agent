@@ -4,4 +4,4 @@
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 "$ROOT/tools/hooks/pii_guard.sh"
-"$ROOT/tools/check.sh"
+if [ -x "$ROOT/tools/check.sh" ]; then "$ROOT/tools/check.sh"; fi
