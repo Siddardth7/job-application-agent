@@ -403,7 +403,7 @@ def main(argv: list[str]) -> int:
     PIPELINE_DIR.mkdir(parents=True, exist_ok=True)
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8")) if args["dry_run"] else None
 
-    seen = ledger.load_seen(supabase=not args["dry_run"])
+    seen = ledger.load_seen(supabase=False)   # fresh-sprint ledger: seen_jobs.csv only
     print(f"Seen ledger: {len(seen.urls)} URLs, {len(seen.req_ids)} requisition ids, {len(seen.fps)} fingerprints.")
 
     st = search_terms()
@@ -472,13 +472,13 @@ def main(argv: list[str]) -> int:
         elif n == 3:
             urls = [linkedin_query(f'{_or(st["domain_companies"][i:i + 5])} AND {_or(st["titles"])}', days=pass_days(3))
                     for i in range(0, len(st["domain_companies"]), 5)]
-            urls.append(linkedin_query(_or(st["titles"]), days=pass_days(3)))
+            urls.append(linkedin_query(_or(st["titles"]), days=pass_days(3), function="eng"))
             apify_pass(3, urls, 40)
 
         elif n == 4:
             titles = _or(st["titles"] + st["adjacent_titles"])
             urls = [linkedin_query(titles, days=pass_days(4), experience=None, job_type="C,T,I"),
-                    linkedin_query(f'{titles} AND ("co-op" OR "intern" OR "contract")', days=pass_days(4), experience="1,2,3"),
+                    linkedin_query(f'{titles} AND ("co-op" OR "intern" OR "contract")', days=pass_days(4), experience="1,2,3", function="eng"),
                     linkedin_query(_or(st["adjacent_titles"]), days=pass_days(4), experience="1,2,3")]
             apify_pass(4, [u for u in urls if '("")' not in u], 40)
 

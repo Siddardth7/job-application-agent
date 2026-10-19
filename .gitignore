@@ -66,3 +66,8 @@ playbook/P1_06_ranker_redesign_plan.md
 # PII guard pattern list (is itself PII)
 .pii_patterns
 supabase/.temp/
+
+# New sprint files
+learning_log.md
+data/applied_dedup.csv
+TODO.md

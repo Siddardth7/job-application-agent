@@ -78,7 +78,8 @@ def _or(terms: list) -> str:
 
 def linkedin_query(keywords: str, location: str = "United States",
                    days: int = 7, experience: str | None = "2,3",
-                   job_type: str | None = None, company_id: int | None = None) -> str:
+                   job_type: str | None = None, company_id: int | None = None,
+                   function: str | None = None) -> str:
     """Build one LinkedIn jobs search URL.
 
     f_TPR is seconds; f_E is experience level (1 intern, 2 entry, 3 associate);
@@ -97,6 +98,8 @@ def linkedin_query(keywords: str, location: str = "United States",
         url += f"&f_JT={job_type}"
     if company_id:
         url += f"&f_C={company_id}"
+    if function:
+        url += f"&f_F={function}"   # job function, e.g. "eng": cuts non-engineering noise before it is billed
     return url
 
 
