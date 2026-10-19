@@ -11,4 +11,5 @@ python3 tools/gates.py --self-test
 python3 tools/triage.py --self-test
 python3 tools/log_apps.py --self-test
 node tools/ats_scan.mjs --self-test
+node tools/lib/providers/tesla.mjs --self-test
 echo "check.sh: all green"

@@ -1,0 +1,9 @@
+{
+  "name": "job-application-agent",
+  "private": true,
+  "type": "module",
+  "description": "Only dependency: playwright-core, used by the Tesla careers provider to drive the system Chrome.",
+  "dependencies": {
+    "playwright-core": "^1.56.0"
+  }
+}
