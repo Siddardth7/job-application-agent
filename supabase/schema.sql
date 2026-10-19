@@ -44,6 +44,7 @@ create table if not exists applications (
   lane            lane_t not null default 'direct-apply',
   score           int,                               -- 0-100 fit score from ranker
   track           text,                              -- your track label, free text (see config/search_profile.json)
+  sprint          text not null default 'niche',     -- which search sprint the row belongs to; the tracker shows one at a time
   domain          text,                              -- ranker domain (config/search_profile.json `domains`), e.g. 'Aerospace & Defense'
   resume          text,                              -- Generated resume file name
   job_url         text,                              -- Link to the original posting
