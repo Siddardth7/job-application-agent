@@ -9,7 +9,7 @@ Writes .pipeline/triage.json    every candidate with score parts, cautions, comp
 
 The score is an audit aid. The human picks Keep/Drop row by row after reading the JD.
 
-Gate 0 (visa, ITAR, sponsorship, title level, language) is gate_and_score.check_eligibility_gate,
+Gate 0 (visa, ITAR, sponsorship, title level, language) is gates.check_eligibility_gate,
 unchanged. On top of it: required years above triage.max_years_gate is gated.
 
 Score /100 (weights in config triage.weights):
@@ -42,7 +42,7 @@ PIPELINE_DIR = ROOT_DIR / ".pipeline"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.profile_config import load_config  # noqa: E402
 from lib import ledger  # noqa: E402
-import gate_and_score as gs  # noqa: E402
+import gates as gs  # noqa: E402
 
 TRIAGE_DEFAULTS = {
     "max_years_gate": 3, "detail_limit": 45,

@@ -1,6 +1,6 @@
 """Search-profile config loader.
 
-Every list that used to be hardcoded in gate_and_score.py / fetch_jobs.py lives in
+Every list that used to be hardcoded in the gate code / fetch_jobs.py lives in
 config/search_profile.json, which `/setup` writes for each user. The example file is
 the fallback so a fresh clone still runs before setup — but it carries the template
 author's targets, so running the pipeline on it scores against the wrong profile.

@@ -9,7 +9,6 @@
 # ── Personal identity (PII) — templates are tracked, the real files are not ──
 profile.md
 data/candidate_resume_database.json
-data/keyword_taxonomy.json
 Resume/Final_Resumes/Resume_NewStrategy_Master.tex
 Resume/Final_Resumes/*.pdf
 Resume/**/*.pdf

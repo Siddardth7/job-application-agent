@@ -7,8 +7,7 @@ python3 -m py_compile tools/*.py tools/lib/*.py
 python3 tools/lib/profile_config.py
 python3 tools/lib/ledger.py
 python3 tools/fetch_jobs.py --self-test
-python3 tools/keyword_engine.py --self-test
-python3 tools/gate_and_score.py --self-test
+python3 tools/gates.py --self-test
 python3 tools/triage.py --self-test
 python3 tools/log_apps.py --self-test
 node tools/ats_scan.mjs --self-test
