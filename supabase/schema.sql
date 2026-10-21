@@ -45,6 +45,7 @@ create table if not exists applications (
   score           int,                               -- 0-100 fit score from ranker
   track           text,                              -- your track label, free text (see config/search_profile.json)
   sprint          text not null default '2026-10-19 to 2026-12-03',  -- search sprint as a date range; the tracker shows one at a time
+  review          text,                              -- Sid's tracker feedback (why good / why skipped); log_apps.py review reads it each morning
   domain          text,                              -- ranker domain (config/search_profile.json `domains`), e.g. 'Aerospace & Defense'
   resume          text,                              -- Generated resume file name
   job_url         text,                              -- Link to the original posting
