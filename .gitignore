@@ -70,3 +70,4 @@ supabase/.temp/
 learning_log.md
 data/applied_dedup.csv
 TODO.md
+.playwright-mcp/
