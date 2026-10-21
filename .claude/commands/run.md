@@ -8,4 +8,4 @@ Run today's job-search loop exactly as `playbook/P1_workflow.md` says. Arguments
 3. Read the JDs for the top triage rows. Present them for Sid's row-by-row Keep/Drop. STOP and wait; never bulk-approve.
 4. For Keeps, pick a lane base from Resume/lanes/ (never Resume_Master.tex), tailor and verify per P3.
 5. Never apply, message or log in. Sid does that.
-6. Run `python3 tools/tailor.py .pipeline/keeps_candidates.json`, verify every PDF, then `python3 tools/log_apps.py queue`. Sid applies from job_tracker.html and sets Status + Review on every row; tomorrow's step 1 reads it.
+6. Run `python3 tools/tailor.py .pipeline/keeps_candidates.json`, verify every PDF, then `python3 tools/log_apps.py queue`. Give Sid the path of `outputs/<date>/apply_list.md` (apply table + per-job networking briefs, written by tailor.py) for his ChatGPT networking project. Sid applies from job_tracker.html and sets Status + Review on every row; tomorrow's step 1 reads it.

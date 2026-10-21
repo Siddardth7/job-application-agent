@@ -5,7 +5,8 @@ tailor.py - per-job resume pass from a lane base (playbook/P3_resume_rules.md).
   python3 tools/tailor.py .pipeline/keeps_candidates.json [--date YYYY-MM-DD]
       input: [{"company", "title", "location", "description", "lane": "A".."D", ...}, ...]
       output: Job_Applications_Resumes/<date>/resume_<Company>_<Role>.tex/.pdf + tailor_notes.md,
-              .pipeline/keeps_queue.json for `log_apps.py queue`
+              .pipeline/keeps_queue.json for `log_apps.py queue`,
+              outputs/<date>/apply_list.md (apply table + per-job networking brief for Sid's ChatGPT networking)
   python3 tools/tailor.py --self-test
 
 Light pass only, never new claims: reorder Skills items and the bullets inside each entry by JD overlap,
@@ -20,6 +21,7 @@ import re
 import sys
 from datetime import date
 from pathlib import Path
+from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parent.parent
 LANES = ROOT / "Resume" / "lanes"
@@ -77,6 +79,46 @@ def note(tex: str, jd: str, lane: str) -> tuple[str, str]:
     return ", ".join(mirrored) or "-", ", ".join(gaps) or "-"
 
 
+CORE4 = ("tesla", "micron", "joby", "ast spacemobile", "ast & science")
+FUNCTION = {"A": "Materials / Process Engineering", "B": "Quality Engineering", "C": "Process Engineering",
+            "D": "Manufacturing Engineering"}
+# ponytail: regex clue finder, misses teams named only in the title; the title + site line covers those
+TEAM_CUE = re.compile(r"member of|join (?:our|the) [^.]{0,60}\bteam\b|reports? (?:directly )?to|reporting to|team is part of", re.I)
+
+
+def clean(item: str) -> str:
+    t = re.sub(r"\\resumeItem\{(.*)\}\s*$", r"\1", item.strip())
+    t = re.sub(r"\\textbf\{([^}]*)\}", r"\1", t).replace("\\%", "%").replace("\\&", "&").replace("$\\sim$", "~")
+    return re.sub(r"\\[a-zA-Z]+\{?|[{}$]", "", t).strip()
+
+
+def brief(j: dict, tex: str, name: str, n: int) -> str:
+    """Networking brief for one kept job: who to find, team clues, the 3 strongest true points."""
+    jd, co, title = j.get("description") or "", j["company"], j["title"]
+    tech = "technician" in title.lower()
+    area = title.split(",", 1)[1].strip() if "," in title else ""
+    small = not any(c in co.lower() for c in CORE4)
+    func = next((f for k, f in (("quality", "Quality Engineering"), ("process", "Process Engineering"),
+                                 ("manufactur", "Manufacturing Engineering"), ("material", "Materials Engineering"))
+                 if k in title.lower()), FUNCTION[j["lane"]])
+    who = [f"Hiring manager: {(area + ' ') if area else ''}{'production / engineering supervisor or lead technician' if tech else func + ' Manager'}",
+           f"Team: a {'technician or engineer' if tech else func.split(' / ')[0].replace(' Engineering', '') + ' engineer'} on that team"
+           f"{' at ' + j['location'] if j.get('location') else ''}",
+           "Recruiter: the recruiter named on the posting, else the site's technical / university recruiter"]
+    if small:
+        who.insert(0, "Small company: founder, Head of Engineering or VP Operations often hire directly")
+    clues = [re.sub(r"\s+", " ", x).strip()[:200] for x in re.split(r"(?<=[.!?])\s+|\n+", jd) if TEAM_CUE.search(x)][:2]
+    points = [clean(b) for b in sorted(re.findall(r"\\resumeItem\{.*\}", tex), key=lambda b: -score(b, words(jd)))[:3]]
+    q = quote(f"{co.split(',')[0]} {area or title.split(',')[0]}")
+    lines = [f"## {n}. {co} · {title}", f"- Location: {j.get('location', '')} · Lane {j['lane']} · Score {j.get('score', '-')}"
+             f" · Req {j.get('req_id') or '-'}", f"- Apply: {j.get('apply_url') or j.get('link')}", f"- Resume: `{name}.pdf`",
+             f"- LinkedIn people search: https://www.linkedin.com/search/results/people/?keywords={q}",
+             "- Who to find:"] + [f"  - {w}" for w in who]
+    lines += ["- Team clues from the JD:"] + ([f"  - \"{c}\"" for c in clues] or ["  - none stated; use the title and site"])
+    lines += ["- My strongest matching points (from this resume):"] + [f"  - {p}" for p in points]
+    return "\n".join(lines) + "\n"
+
+
 def main(argv: list[str]) -> int:
     from build_lanes import fit  # noqa: E402  (lane fitter: loosest spacing that fits one page)
     jobs = json.loads(Path(argv[0]).read_text())
@@ -88,6 +130,7 @@ def main(argv: list[str]) -> int:
     out = ROOT / "Job_Applications_Resumes" / day
     out.mkdir(parents=True, exist_ok=True)
     lines, seen, hashes, queue = [f"# Tailoring notes {day}\n"], {}, set(), []
+    table, briefs = [], []
     for j in jobs:
         base = (LANES / f"Resume_Lane{j['lane']}.tex").read_text()
         tex = tailor_tex(base, j.get("description") or "")
@@ -114,10 +157,21 @@ def main(argv: list[str]) -> int:
             path.with_suffix(ext).unlink(missing_ok=True)
         queue.append({k: j.get(k) for k in ("company", "title", "location", "link", "apply_url", "req_id", "score", "lane")}
                      | {"resume": f"{day}/{name}.pdf"})
+        n = len(queue)
+        table.append(f"| {n} | {j['company']} | {j['title']} | {j.get('location', '')} | {j['lane']} | {j.get('score', '-')} | "
+                     f"{name}.pdf | [link]({j.get('apply_url') or j.get('link')}) |")
+        briefs.append(brief(j, final, name, n))
         print(f"{name}: lane {j['lane']}, {changed}, ls {ls:.2f}{dup}")
     (out / "tailor_notes.md").write_text("\n".join(lines))
     (ROOT / ".pipeline" / "keeps_queue.json").write_text(json.dumps(queue, indent=1))   # -> log_apps.py queue
-    print(f"\n{len(jobs)} resumes -> {out}")
+    outd = ROOT / "outputs" / day
+    outd.mkdir(parents=True, exist_ok=True)
+    (outd / "apply_list.md").write_text(
+        f"# Apply list {day} ({len(jobs)})\n\nResumes: `Job_Applications_Resumes/{day}/` (notes in `tailor_notes.md`). "
+        "Networking brief per job below: upload this file to the ChatGPT networking project.\n\n"
+        "| # | Company | Role | Location | Lane | Score | Resume | Apply |\n|---|---|---|---|---|---|---|---|\n"
+        + "\n".join(table) + "\n\n# Networking briefs\n\n" + "\n".join(briefs))
+    print(f"\n{len(jobs)} resumes -> {out}\napply list + networking briefs -> {outd / 'apply_list.md'}")
     return 0
 
 
@@ -132,6 +186,14 @@ def self_test() -> int:
           "Ishikawa" in t and "fishbone" not in t,                   # vetted equivalent swapped in
           "Python, Excel" in t,                                      # Tools line untouched
           tailor_tex(tex, "SPC only") .index("Ran SPC") < tailor_tex(tex, "SPC only").index("Wrote CAPA")]
+    b = brief({"company": "Acme Composites", "title": "Process Technician, Cure & Bond", "location": "Kent, WA", "lane": "C",
+               "description": "You will be a member of the Cure team. We offer benefits.", "apply_url": "https://x"},
+              tex, "resume_Acme", 1)
+    ok += ["founder" in b,                                           # small company -> founder line
+           "Cure & Bond production / engineering supervisor" in b,  # area from the title
+           '"You will be a member of the Cure team."' in b and "benefits" not in b,
+           "Cure%20%26%20Bond" in b,                                 # search URL encoded
+           "- Wrote CAPA records with fishbone." in b]               # resume points, LaTeX stripped
     print("ALL PASS" if all(ok) else f"FAIL {ok}")
     return 0 if all(ok) else 1
 
