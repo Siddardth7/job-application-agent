@@ -128,11 +128,15 @@ def is_geo_blocked(location: str) -> bool:
 
 # ── Sources ─────────────────────────────────────────────────────────────────
 
+def skipped_company(name: str, skip_companies: list[str]) -> bool:
+    """Whole-word match, so a short key like 'ati' never hits 'Joby Aviation'."""
+    return any(re.search(rf"(?<![a-z0-9]){re.escape(k)}(?![a-z0-9])", name.lower()) for k in skip_companies)
+
+
 def run_ats_scan(skip_companies: list[str], days: int | None = None) -> tuple[list[dict], str, list[str]]:
     """Run tools/ats_scan.mjs. Returns (rows, error, portals_skipped)."""
     cfg = json.loads(PORTALS_JSON.read_text(encoding="utf-8"))
-    skipped = [p["name"] for p in cfg.get("portals", [])
-               if any(k in p.get("name", "").lower() for k in skip_companies)]
+    skipped = [p["name"] for p in cfg.get("portals", []) if skipped_company(p.get("name", ""), skip_companies)]
     if skipped:
         cfg["portals"] = [p for p in cfg["portals"] if p["name"] not in skipped]
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as tmp:
@@ -611,6 +615,8 @@ def run_self_test() -> int:
     print("\nargs")
     check("--pass=1,3 parses", parse_args(["--pass=1,3"])["passes"] == [1, 3])
     check("--ats-only parses", parse_args(["--ats-only"])["ats_only"])
+    check("non-sponsor key 'ati' does not skip Joby Aviation", not skipped_company("Joby Aviation", ["ati"]))
+    check("non-sponsor key 'ati' skips ATI", skipped_company("ATI Specialty Materials", ["ati"]))
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILURE(S): ' + ', '.join(fails)}")
     return 1 if fails else 0
