@@ -69,6 +69,7 @@ PASS_LABELS = {
     3: "Pass 3: LinkedIn, all domains",
     4: "Pass 4: LinkedIn, contract / technician / intern / co-op",
     5: "Pass 5: LinkedIn, international",
+    6: "Pass 6: Indeed / ZipRecruiter / Dice (connectors, agent-gathered)",
 }
 _DEFAULT_CAPS = {2: 0.12, 3: 0.12, 4: 0.10, 5: 0.12}
 _DEFAULT_DAYS = {1: 3, 2: 3, 3: 1, 4: 1, 5: 3}
@@ -127,11 +128,15 @@ def is_geo_blocked(location: str) -> bool:
 
 # ── Sources ─────────────────────────────────────────────────────────────────
 
+def skipped_company(name: str, skip_companies: list[str]) -> bool:
+    """Whole-word match, so a short key like 'ati' never hits 'Joby Aviation'."""
+    return any(re.search(rf"(?<![a-z0-9]){re.escape(k)}(?![a-z0-9])", name.lower()) for k in skip_companies)
+
+
 def run_ats_scan(skip_companies: list[str], days: int | None = None) -> tuple[list[dict], str, list[str]]:
     """Run tools/ats_scan.mjs. Returns (rows, error, portals_skipped)."""
     cfg = json.loads(PORTALS_JSON.read_text(encoding="utf-8"))
-    skipped = [p["name"] for p in cfg.get("portals", [])
-               if any(k in p.get("name", "").lower() for k in skip_companies)]
+    skipped = [p["name"] for p in cfg.get("portals", []) if skipped_company(p.get("name", ""), skip_companies)]
     if skipped:
         cfg["portals"] = [p for p in cfg["portals"] if p["name"] not in skipped]
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as tmp:
@@ -375,7 +380,7 @@ def pick_needs_jd(survivors: list[dict]) -> list[dict]:
 # ── Main ────────────────────────────────────────────────────────────────────
 
 def parse_args(argv: list[str]) -> dict:
-    a = {"passes": [0, 1, 2, 3, 4, 5], "ats_only": False, "jds": None, "urls": [],
+    a = {"passes": [0, 1, 2, 3, 4, 5, 6], "ats_only": False, "jds": None, "urls": [],
          "dry_run": "--dry-run" in argv, "self_test": "--self-test" in argv, "backfill": 0}
     for arg in argv:
         if arg.startswith("--pass=") and arg[7:] != "all":
@@ -489,6 +494,12 @@ def main(argv: list[str]) -> int:
             kw = _or(st["titles"] + st["adjacent_titles"])
             urls = [linkedin_query(kw, location=loc, days=pass_days(5), experience=None) for loc in st["intl_locations"]]
             apify_pass(5, urls, 40)
+
+        elif n == 6:   # rows the agent saved from the claude.ai connectors; tools/connectors.py build writes the file
+            src = PIPELINE_DIR / "connectors_raw.json"
+            rows = json.loads(src.read_text(encoding="utf-8")) if src.exists() else []
+            raw_jobs.extend(normalize_job(r, f"connector_{r.get('source_name', '')}", 6) for r in rows)
+            record(6, "ok" if rows else "skipped", len(rows), "" if rows else "no .pipeline/connectors_raw.json (run tools/connectors.py build)")
 
     survivors, drops = process_batch(raw_jobs, seen)
     kept_by_pass = {n: sum(1 for j in survivors if j["pass_num"] == n) for n in PASS_LABELS}
@@ -604,6 +615,8 @@ def run_self_test() -> int:
     print("\nargs")
     check("--pass=1,3 parses", parse_args(["--pass=1,3"])["passes"] == [1, 3])
     check("--ats-only parses", parse_args(["--ats-only"])["ats_only"])
+    check("non-sponsor key 'ati' does not skip Joby Aviation", not skipped_company("Joby Aviation", ["ati"]))
+    check("non-sponsor key 'ati' skips ATI", skipped_company("ATI Specialty Materials", ["ati"]))
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILURE(S): ' + ', '.join(fails)}")
     return 1 if fails else 0

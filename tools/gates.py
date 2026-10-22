@@ -78,6 +78,8 @@ VISA_ITAR_PATTERNS = [
     (r'(?i)\bcannot\s+(?:\w+\s+){0,4}?sponsor', "No visa sponsorship", "hard"),
     (r'(?i)(?:unable|not\s+able|unwilling)\s+to\s+(?:\w+\s+){0,3}?sponsor', "No visa sponsorship", "hard"),
     (r'(?i)(?:does|do|will|can|cannot)\s+not?\s+(?:provide|offer|support|extend)\s+(?:\w+\s+){0,3}?sponsorship', "No visa sponsorship", "hard"),
+    # "It is ATI's policy to not provide immigration sponsorship" (2026-10-20 miss)
+    (r'(?i)\bpolicy\s+(?:is\s+)?(?:to\s+)?not\s+(?:to\s+)?(?:provide|offer|support|extend)\s+(?:\w+\s+){0,3}?sponsorship', "No visa sponsorship", "hard"),
     (r'(?i)\bno\s+(?:visa\s+|immigration\s+|work\s+visa\s+|employment\s+|h-?1b\s+)?sponsorship\b', "No visa sponsorship", "hard"),
     (r'(?i)sponsorship\s+(?:is|will)\s+not\s+(?:be\s+)?(?:available|offered|provided|considered)', "No visa sponsorship", "hard"),
     (r'(?i)not\s+eligible\s+for\s+(?:[\w-]+\s+){0,4}?(?:\w+-)?sponsor', "No visa sponsorship", "hard"),
@@ -398,6 +400,7 @@ def run_self_test() -> int:
     check("requirement in the NEXT sentence still gates", not g(description="Work involves ITAR data. Applicants must be U.S. persons. " + jd_ok)[0])
     check("'may require a license' is CAUTION not gate", g(description="This role may require access to export controlled information. Applicants must be authorized or eligible for government authorization. " + jd_ok)[0])
     check("'does not sponsor' gates", not g(description="We do not sponsor work visas. " + jd_ok)[0])
+    check("'policy to not provide immigration sponsorship' gates", not g(description="It is ATI's policy to not provide immigration sponsorship for any of the company's positions. " + jd_ok)[0])
     check("'not eligible for ... sponsorship' gates", not g(description="This position is not eligible for employment-based visa sponsorship, now or in the future. " + jd_ok)[0])
     check("welcoming citizenship mention is CAUTION", g(description="US citizens and visa holders welcome. " + jd_ok)[0])
     check("conditional citizenship (licensing review) is CAUTION not gate", g(description="Applicants for this position - except US Citizens and protected individuals as defined by 8 U.S.C. 1324b(a)(3) - may have to go through an export licensing review process. " + jd_ok)[0])
